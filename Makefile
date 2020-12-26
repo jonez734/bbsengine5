@@ -57,4 +57,7 @@ handbook:
 	-$(RSYNC) handbook/*.txt handbook/*.md $(STAGEDOCROOT)$(VERSION)/handbook/
 	$(RSYNC) $(STAGEDOCROOT)$(VERSION)/handbook/ $(PRODDOCROOT)$(VERSION)/handbook/
 
+push:
+	git push -u origin master
+
 .PHONY: handbook release
