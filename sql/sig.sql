@@ -28,4 +28,3 @@ grant select on engine.sig to apache;
 
 grant all on table engine.__sig to apache;
 grant all on sequence engine.__sig_id_seq to apache;
-
