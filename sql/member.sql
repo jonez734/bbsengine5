@@ -7,9 +7,11 @@ create table engine.__member (
   "email" text,
   "password" text,
   "datecreated" timestamptz,
-  "createdbyid" integer constraint fk_member_createdbyid references engine.__member(id) on update cascade on delete set null,
+  "createdbyid" bigint constraint fk_member_createdbyid references engine.__member(id) on update cascade on delete set null,
   "dateupdated" timestamptz,
-  "updatedbyid" integer constraint fk_member_updatedbyid references engine.__member(id) on update cascade on delete set null,
+  "updatedbyid" bigint constraint fk_member_updatedbyid references engine.__member(id) on update cascade on delete set null,
+  "approvedbyid" bigint constraint fk_member_approvedbyid references engine.__member(id) on update cascade on delete set null,
+  "dateapproved" timestamptz,
   "lastlogin" timestamptz,
   "lastloginfrom" inet,
   "attributes" jsonb
@@ -20,9 +22,11 @@ grant all on engine.__member_id_seq to apache;
 
 create view engine.member as
   select m.*,
-  extract(epoch from lastlogin) as lastloginepoch,
   extract(epoch from datecreated) as datecreatedepoch,
+  extract(epoch from lastlogin) as lastloginepoch,
+  extract(epoch from dateapproved) as dateapprovedepoch,
   extract(epoch from dateupdated) as dateupdatedepoch
+
   from engine.__member as m
 ;
 
