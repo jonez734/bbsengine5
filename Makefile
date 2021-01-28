@@ -19,7 +19,7 @@ export VERSION = "v5"
 all:
 
 clean:
-	-$(MAKE) -C prg clean;
+	-$(MAKE) -C php clean;
 	-$(MAKE) -C handbook clean;
 
 release:
@@ -44,8 +44,8 @@ apidocs:
 	mkdir -p $(STAGEDOCROOT)$(VERSION)/apidocs/
 	phpdoc run \
 	--target $(STAGEDOCROOT)$(VERSION)/apidocs/ \
-	--directory prg \
-	--extensions prg \
+	--directory php \
+	--extensions php \
 	--title "$(PROJECT) apidocs" \
 	--defaultpackagename "$(PROJECT)" \
 	--sourcecode \
