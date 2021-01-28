@@ -1,12 +1,12 @@
 \echo buildsiguri.sql
-create extension "ltree_plpython2u" cascade;
+create extension "ltree_plpython3u" cascade;
 
-create or replace language "plpython2u";
+create or replace language "plpython3u";
 
-create or replace function engine.buildsiguri(path ltree)
+create or replace function engine.buildsiguri(sigpath ltree)
 returns text as $$
     res = []
-    for p in path:
+    for p in sigpath:
       if p is not None:
         p = p.replace("top", "")
         p = p.replace("top.", "")
@@ -22,4 +22,4 @@ returns text as $$
     return uri
 
 $$
-language plpython2u transform for type ltree;
+language plpython3u transform for type ltree;
