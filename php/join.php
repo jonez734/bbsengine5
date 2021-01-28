@@ -7,9 +7,9 @@
  *
  */
 
-require_once("config.prg");
-require_once(SITENAME.".prg");
-require_once("bbsengine5.prg");
+require_once("config.php");
+require_once(SITENAME.".php");
+require_once("bbsengine5.php");
 
 class join
 {
