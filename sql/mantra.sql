@@ -8,7 +8,7 @@
 --    createdbyid integer constraint fk_mantra_postedbyid references engine.__member(id) on update cascade on delete set null,
 --    dateupdated timestamp with time zone,
 --    updatedbyid integer constraint fk_mantra_modifiedbyid references engine.__member(id) on update cascade on delete set null
-);
+--);
 
 create view engine.mantra as
     select 
