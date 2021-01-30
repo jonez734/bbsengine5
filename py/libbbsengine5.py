@@ -610,20 +610,40 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
   return stamp
 
 # @since 20120306
-def getcurrentmemberid():
-  membermap = {"jam" : 1}
+def getcurrentmemberid(args):
+  # membermap = {"jam" : 1}
   loginid = pwd.getpwuid(os.geteuid())[0]
-  if loginid in membermap:
-    currentmemberid = membermap[loginid]
-  else:
-    currentmemberid = None
-  return currentmemberid
+  sql = "select id from engine.member where loginid=%s" 
+  dat = (loginid,)
+  dbh = databaseconnect(args)
+  cur = dbh.cursor()
+  cur.execute(sql, dat)
+  res = cur.fetchone()
+  ttyio.echo("getcurrentmemberid.100: res=%r" % (res), level="debug")
+  return res
+
+  if res is None:
+    return None
+  #if loginid in membermap:
+  #  currentmemberid = membermap[loginid]
+  #else:
+  #  currentmemberid = None
+  #return currentmemberid
 
 # @since 20170303
-def getcurrentmemberlogin():
-  membermap = {"jam" : 1}
+def getcurrentmemberlogin(args):
+  # membermap = {"jam" : 1}
   loginid = pwd.getpwuid(os.geteuid())[0]
 
+  dbh = databaseconnect(args)
+  cur = dbh.cursor()
+  sql = "select 1 where attributes->>'loginid'=%s"
+  dat = (loginid,)
+  cur.execute(sql, dat)
+  if cur.rowcount == 0:
+    return None
+  return loginid
+  
   if loginid in membermap:
     return loginid
   return None
@@ -875,10 +895,33 @@ def buildargdatabasegroup(parser:object, defaults:dict={}):
 def diceroll(sides:int=6, count:int=1, mode:str=None):
   return random.randint(1, sides)
 
+# @since 20210129
 def inittopbar(height:int=1):
   ttyio.echo("{DECSTBM:%d}" % (height+1))
   return
 
+# @since 20210129
 def updatetopbar(buf:str):
   ttyio.echo("{decsc}{home}%s{decrc}" % (buf), end="")
   return
+
+# @since 20210129
+def setmemberpassword(dbh, memberid, plaintextpassword):
+  cur = dbh.cursor()
+  sql = "update engine.__member set password=crypt(%s, gen_salt('bf')) where id=%s"
+  dat = (plaintextpassword, memberid)
+  cur.execute(sql, dat)
+  if cur.rowcount == 0:
+    return False
+  return True
+
+# @since 20210129
+def setmemberattributes(dbh, memberid, attributes, reset=False):
+  cur = dbh.cursor()
+  if reset is False:
+    sql = "update engine.__member set attributes=attributes||%%s where id=%s" % (memberid)
+  else:
+    sql = "update engine.__member set attributes=%%s where id=%s" % (memberid)
+
+  dat = (Json(attributes),)
+  return cur.execute(sql, dat)
