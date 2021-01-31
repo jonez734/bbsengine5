@@ -25,7 +25,7 @@ def verifyMemberNotFound(args, name):
         return True
     return False
 
-def members(args):
+def member(args, command):
     ttyio.echo("[N]ew")
     ttyio.echo("[E]dit")
     ttyio.echo("[D]elete")
@@ -148,24 +148,26 @@ def main():
   done = False
   while not done:
     # @todo: handle subcommands as tab-complete
-    ttyio.echo("args=%r" % (args), level="debug")
+    # ttyio.echo("args=%r" % (args), level="debug")
 
     # ttyio.echo(bbsengine.datestamp(format="%c %Z"))
     prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}zoidtech main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
     try:
+      # ttyio.echo("prompt=%r" % (prompt))
       buf = ttyio.inputstring(prompt, multiple=False, returnseq=False, verify=None, completer=shellCommandCompleter(args))
-    except (EOFError, KeyboardInterrupt) as e:
+    except EOFError:
+      ttyio.echo("EOF")
       return
-    finally:
-      ttyio.echo("{reset}")
+    except KeyboardInterrupt:
+      ttyio.echo("INTR")
+      return
 
     if buf is None or buf == "":
       continue
-
-    if buf == "?" or buf == "help":
+    elif buf == "?" or buf == "help":
       help()
       continue
-    if buf == "logout" or buf == "lo" or buf == "quit" or buf == "q":
+    elif buf == "logout" or buf == "lo" or buf == "quit" or buf == "q":
       ttyio.echo("logout")
       done = True
       break
@@ -173,8 +175,18 @@ def main():
     found = False
     argv = buf.split(" ")
     for c in commands:
-      if argv[0] == c["command"]:
-        os.system(buf)
+      command = c["command"]
+      callback = c["callback"]
+      if argv[0] == command:
+        ttyio.echo("found command %r with callback %r" % (command, callback))
+        try:
+          func = eval(callback)
+        except:
+          func = None
+        if callable(func) is True:
+          func(args, c)
+        else:
+          ttyio.echo("%r is not callable" % (callback))
         found = True
         break
     if found is False:
@@ -184,4 +196,5 @@ def main():
   # return ttyio.inputstring(prompt, oldvalue, opts=opts, verify=verify, multiple=multiple, completer=sigcompleter(opts), returnseq=True, **kw)
 
 if __name__ == "__main__":
-    main()
+  main()
+  ttyio.echo("{reset}")
