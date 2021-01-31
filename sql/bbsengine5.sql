@@ -1,0 +1,13 @@
+\i extensions.sql
+\i roles.sql
+\i schema.sql
+\i buildsiguri.sql
+\i member.sql
+\i session.sql
+\i notify.sql
+\i sig.sql
+\i flag.sql
+\i flagdata.sql
+\i node.sql
+\i mantra.sql
+\i memberview.sql
