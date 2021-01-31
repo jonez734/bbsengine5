@@ -71,6 +71,7 @@ commands = (
     {"command": "post-add", "callback": "libsocrates.postadd", "help":"add new post"},
     {"command": "member",   "callback": "member", "help":"manage members"},
     {"command": "sig",      "callback": "sig", "help":"manage sigs"},
+    {"command": "help",     "callback": "help"},
 )
 
 # @since 20201125
@@ -102,7 +103,10 @@ def help():
   bbsengine.title("shell commands", hrcolor="{green}", titlecolor="{bggray}{white}")
   for c in commands:
     n = c["command"].ljust(maxlen)
-    ttyio.echo("{bggray}{white}%s{/bgcolor}{green} %s" % (n, c["help"]))
+    if "help" in c:
+      ttyio.echo("{bggray}{white}%s{/bgcolor}{green} %s" % (n, c["help"]))
+    else:
+      ttyio.echo("{bggray}{white}%s{/bgcolor}{green}" % (n))
   ttyio.echo("{/all}")
   return
 
