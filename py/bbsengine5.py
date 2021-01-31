@@ -260,15 +260,6 @@ def inputdate(prompt, epoch=None, **kw):
   else:
     return epoch
 
-# @TODO: limit input to digits
-def inputinteger(prompt, oldvalue=None):
-  buf = ttyio.inputstring(prompt, oldvalue)
-  if re.match("^[\d]+$", buf) is not None:
-    return int(buf)
-  return None
-
-# inputstring moved to ttyio2 @since 20190913
-
 def inputboolean(prompt:str, default:bool=None, options="YNTF") -> bool:
   ch = ttyio.inputchar(prompt, options, default)
   if ch == "Y":
@@ -289,16 +280,6 @@ def areyousure(prompt="are you sure? ", default="N", options="YN") -> bool:
   if res is True:
     return 0
   return 1
-
-#def _input(func, prompt, oldvalue, opts=None):
-#    buf = func(prompt, oldvalue)
-#    if "noneok" in opts and opts.noneok is True and (buf is None or buf == ""):
-#        return None
-#
-#    if buf is not None and buf != "":
-#        return buf
-#
-#    return oldvalue
 
 def getsigpathfromid(dbh, id):
   sql = "select path from engine.sig where id=%s"
