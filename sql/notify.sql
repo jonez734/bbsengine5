@@ -18,7 +18,7 @@ create table engine.__notify (
 grant all on engine.__notify to "apache";
 grant all on engine.__notify_id_seq to "apache";
 
-create view engine.notify as
+create or replace view engine.notify as
   select n.*,
     extract(epoch from n.datecreated) as datecreatedepoch,
     extract(epoch from n.datedisplayed) as datedisplayedepoch,
@@ -40,7 +40,7 @@ create view engine.notify as
 
 grant select on engine.notify to apache;
 
-create or replace language plpython3u;
+--create or replace language plpython3u;
 
 -- copied from trailersdemo, originally written 2016-mar-31 with help from #postgresql
 -- this trigger deletes a notify if the memberid and the sessionid are both None
