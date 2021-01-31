@@ -5,6 +5,7 @@ create table engine.__member (
   "name" text unique not null,
   "email" text,
   "password" text,
+  "credits" numeric(10,0),
   "datecreated" timestamptz,
   "createdbyid" bigint constraint fk_member_createdbyid references engine.__member(id) on update cascade on delete set null,
   "dateupdated" timestamptz,
