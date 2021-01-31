@@ -15,8 +15,8 @@ create view engine.sig as
  select 
   s.*,
   engine.buildsiguri(path) as uri,
-  coalesce(m1.username, 'a. nonymous'::text) as createdbyname,
-  coalesce(m2.username, 'a. nonymous'::text) as updatedbyname
+  coalesce(m1.name, 'a. nonymous'::text) as createdbyname,
+  coalesce(m2.name, 'a. nonymous'::text) as updatedbyname
  from engine.__sig as s
  left join engine.__member as m1 ON (m1.id = s.createdbyid)
  left join engine.__member as m2 ON (m2.id = s.updatedbyid)
