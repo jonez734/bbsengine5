@@ -28,43 +28,43 @@ else:
 #  cfg.read(configfile)
 #  return cfg
 
-def verifyprimarykey(dbh, opts, table, primarykey, value):
+def verifyprimarykey(dbh, args, table, primarykey, value):
   sql = "select 1 as verified from %s where %s=%%s" % (table, primarykey)
   dat = (value,)
   cur = dbh.cursor()
   # ttyio.echo("verifyprimarykey.100: mogrify=%s" % (cur.mogrify(sql, dat)), level="debug")
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("verifyprimarykey.100: mogrify=%s" % (cur.mogrify(sql, dat)), level="debug")
   cur.execute(sql, dat)
   res = cur.fetchone()
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("verifyprimarykey.105: res=%s" % (res), level="debug")
   if res is None:
-    if opts.debug is True:
+    if args.debug is True:
       ttyio.echo("verifyprimarykey.108: res is none", level="debug")
     return False
 
   rec = res["verified"]
   if rec == 1:
-    if opts.debug is True:
+    if args.debug is True:
       ttyio.echo("verifyprimarykey.110: returning True", level="debug")
     return True
 
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("verifyprimarykey.120: returning False", level="debug")
   return False
 
 class inputcompleter(object):
-  def __init__(self, dbh, opts, table, primarykey):
+  def __init__(self, dbh, args, table, primarykey):
     ttyio.echo("inputcompleter.__init__", level="debug")
-    self.opts = opts
+    self.args = args
     self.matches = []
     self.dbh = dbh
     self.table = table
     self.primarykey = primarykey
 
   def getmatches(self, text):
-    if self.opts.debug is True:
+    if self.args.debug is True:
       ttyio.echo("inputcompleter.200: matches=%r table=%r primarykey=%r" % (self.matches, self.table, self.primarykey), level="debug")
     sql = "select distinct %s from %s where %s::text" % (self.primarykey, self.table, self.primarykey)
     sql += " ilike %s"
@@ -73,7 +73,7 @@ class inputcompleter(object):
       dat += ["%%"]
     else:
       dat += [text+"%"]
-    if self.opts.debug is True:
+    if self.args.debug is True:
       ttyio.echo("inputcompleter.getmatches.110: sql=%s dat=%s" % (sql, dat), level="debug")
     
     cur = self.dbh.cursor()
@@ -97,12 +97,12 @@ class inputcompleter(object):
     
     return None
 
-def inputprimarykey(dbh, opts, table, primarykey, prompt, default, completer=None, verify=None, noneok=False, multi=False, delims=None):
+def inputprimarykey(dbh, args, table, primarykey, prompt, default, completer=None, verify=None, noneok=False, multi=False, delims=None):
   if completer is None:
-    completer = inputcompleter(dbh, opts, table, primarykey, prompt=prompt)
+    completer = inputcompleter(dbh, args, table, primarykey, prompt=prompt)
     ttyio.echo("completer is None", level="debug")
 
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("inputprimarykey entered. primarykey=%s table=%s verify=%s, noneok=%s" % (primarykey, table, verify, noneok), level="debug")
 
   olddelims = readline.get_completer_delims()
@@ -114,13 +114,13 @@ def inputprimarykey(dbh, opts, table, primarykey, prompt, default, completer=Non
   # ttyio.echo("checking completer... %r" % (type(completer)), level="debug")
   if callable(completer) is True:
     # ttyio.echo("inputprimarykey.100: parse and bind", level="debug")
-    c = completer(dbh, opts, table, primarykey)
+    c = completer(dbh, args, table, primarykey)
     readline.parse_and_bind("tab: complete")
     readline.set_completer(c.completer)
     ttyio.echo("completer set", level="debug")
 
   while True:
-    if opts.debug is True:
+    if args.debug is True:
       buf = ttyio.inputstring(prompt, default, noneok=noneok)
       if buf is None or buf == "":
         if noneok is False:
@@ -135,10 +135,10 @@ def inputprimarykey(dbh, opts, table, primarykey, prompt, default, completer=Non
       break
 
     if callable(verify) is True:
-      if opts.debug is True:
+      if args.debug is True:
         ttyio.echo("inputprimarykey.200: verify is callable", level="debug")
-      if verify(dbh, opts, table, primarykey, buf) is True:
-        if opts.debug is True:
+      if verify(dbh, args, table, primarykey, buf) is True:
+        if args.debug is True:
           ttyio.echo("verify returned true", level="debug")
         result = buf
         break
@@ -154,30 +154,30 @@ def inputprimarykey(dbh, opts, table, primarykey, prompt, default, completer=Non
 def _databaseconnect(**kw):
   return psycopg2.connect(connection_factory=psycopg2.extras.DictConnection, cursor_factory=psycopg2.extras.RealDictCursor, **kw)
 
-def databaseconnect(opts):
+def databaseconnect(args):
     kw = {}
-    if type(opts) == type({}):
-      if "databasekey" in opts:
-        kw["database"] = opts["databasename"]
-      if "databasehost" in opts:
-        kw["host"] = opts["databasehost"]
-      if "databaseuser" in opts:
-        kw["user"] = opts["databaseuser"]
-      if "databasepassword" in opts:
-        kw["password"] = opts["databasepassword"]
-      if "databaseport" in opts:
-        kw["port"] = opts["databaseport"]
+    if type(args) == type({}):
+      if "databasekey" in args:
+        kw["database"] = args["databasename"]
+      if "databasehost" in args:
+        kw["host"] = args["databasehost"]
+      if "databaseuser" in args:
+        kw["user"] = args["databaseuser"]
+      if "databasepassword" in args:
+        kw["password"] = args["databasepassword"]
+      if "databaseport" in args:
+        kw["port"] = args["databaseport"]
     else:
-      if hasattr(opts, "databasename"):
-        kw["database"] = opts.databasename
-      if hasattr(opts, "databasehost"):
-        kw["host"] = opts.databasehost
-      if hasattr(opts, "databaseuser"):
-        kw["user"] = opts.databaseuser
-      if hasattr(opts, "databasepassword"):
-        kw["password"] = opts.databasepassword
-      if hasattr(opts, "databaseport"):
-        kw["port"] = opts.databaseport
+      if hasattr(args, "databasename"):
+        kw["database"] = args.databasename
+      if hasattr(args, "databasehost"):
+        kw["host"] = args.databasehost
+      if hasattr(args, "databaseuser"):
+        kw["user"] = args.databaseuser
+      if hasattr(args, "databasepassword"):
+        kw["password"] = args.databasepassword
+      if hasattr(args, "databaseport"):
+        kw["port"] = args.databaseport
     
     return _databaseconnect(**kw)
 
@@ -309,10 +309,10 @@ def getsigidfrompath(dbh, path):
   return res["id"]
 
 class sigcompleter(object):
-  def __init__(self, opts):
-    self.dbh = databaseconnect(opts)
+  def __init__(self, args):
+    self.dbh = databaseconnect(args)
     self.matches = []
-    self.debug = opts.debug
+    self.debug = args.debug
     if self.debug is True:
       print ("init sigcompleter object")
 
@@ -363,10 +363,10 @@ def buildsiglist(sigs:str) -> list:
   return res
 
 # @fix: check access to a given sig (eros.*)
-def verifysigpath(opts, sigpath):
+def verifysigpath(args, sigpath):
   sql = "select 't' from engine.sig where path=%s"
   dat = (sigpath,)
-  dbh = databaseconnect(opts)
+  dbh = databaseconnect(args)
   cur = dbh.cursor()
   cur.execute(sql, dat)
   res = cur.fetchone()
@@ -374,11 +374,11 @@ def verifysigpath(opts, sigpath):
     return False
   return True
 
-def inputsig(opts, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigpath, **kw):
-  if opts.debug is True:
+def inputsig(args, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigpath, **kw):
+  if args.debug is True:
     ttyio.echo("inputsig entered. multiple=%r verify=%r" % (multiple, verify), level="debug")
 
-  return ttyio.inputstring(prompt, oldvalue, opts=opts, verify=verify, multiple=multiple, completer=sigcompleter(opts), returnseq=True, **kw)
+  return ttyio.inputstring(prompt, oldvalue, opts=args, verify=verify, multiple=multiple, completer=sigcompleter(args), returnseq=True, **kw)
 
 def getsignamefromid(dbh, id):
   if id is None:
@@ -444,14 +444,14 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
   cur.close()
   return None
 
-def insertnode(dbh, opts:object, node:dict, table:str="engine.__node", returnid:bool=True, primarykey:str="id", mogrify:bool=False):
+def insertnode(dbh, args:object, node:dict, table:str="engine.__node", returnid:bool=True, primarykey:str="id", mogrify:bool=False):
   node["attributes"] = Json(node["attributes"])
   node["datecreated"] = "now()"
-  node["createdbyid"] = getcurrentmemberid()
+  node["createdbyid"] = getcurrentmemberid(args)
   ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
-def updatenodesigs(dbh, opts, nodeid, sigpaths):
+def updatenodesigs(dbh, args, nodeid, sigpaths):
   # dbh is passed
   if sigpaths is None or len(sigpaths) == 0:
     return None
@@ -466,29 +466,29 @@ def updatenodesigs(dbh, opts, nodeid, sigpaths):
   dbh.commit()
   return None
 
-def updatenodeattributes(dbh, opts:object, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
+def updatenodeattributes(dbh, args:object, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
   if reset is False:
     sql = "update %s set attributes=attributes||%%s where id=%s" % (table, nodeid)
   else:
     sql = "update %s set attributes=%%s where id=%s" % (table, nodeid)
 
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("updatenodeattributes.120: sql=%s" % (sql), level="debug")
 
   dat = (Json(attributes),)
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("bbsengine4.updatenodeattributes.100: dat=%r" % (dat), level="debug")
   cur = dbh.cursor()
-  if opts.debug is True:
+  if args.debug is True:
     ttyio.echo("updatenodeattributes.100: %r" % (cur.mogrify(sql, dat)), level="debug")
   return cur.execute(sql, dat)
 
-def updatenode(dbh, opts:object, id:int, node:dict, reset=False):
+def updatenode(dbh, args:object, id:int, node:dict, reset=False):
   node["dateupdated"] = "now()"
-  node["updatedbyid"] = getcurrentmemberid()
+  node["updatedbyid"] = getcurrentmemberid(args)
   attr = node["attributes"] if "attributes" in node else {}
   if len(attr) > 0:
-    updatenodeattributes(dbh, opts, id, attr, reset=reset)
+    updatenodeattributes(dbh, args, id, attr, reset=reset)
     del node["attributes"]
   return update(dbh, "engine.__node", id, node)
 
@@ -541,11 +541,11 @@ def updateflag(dbh, flag):
   return
 
 # @since 20210106
-def checkmemberflag(opts:object, flag:str, memberid:int=None):
+def checkmemberflag(args:object, flag:str, memberid:int=None):
   if memberid is None:
-    memberid = getcurrentmemberid()
+    memberid = getcurrentmemberid(args)
 
-  dbh = databaseconnect(opts)
+  dbh = databaseconnect(args)
   sql = "select f.name, coalesce(mmf.value, f.defaultvalue) as value from engine.flag as f left outer join engine.map_member_flag as mmf on (f.name=mmf.name and mmf.memberid=%s) where f.name=%s"
   dat = (memberid, flag)
   cur = dbh.cursor()
@@ -600,8 +600,9 @@ def getcurrentmemberid(args):
   cur = dbh.cursor()
   cur.execute(sql, dat)
   res = cur.fetchone()
-  ttyio.echo("getcurrentmemberid.100: res=%r" % (res), level="debug")
-  return res
+  if args.debug is True:
+    ttyio.echo("getcurrentmemberid.100: res=%r" % (res), level="debug")
+  return res["id"]
 
   if res is None:
     return None
@@ -674,7 +675,7 @@ def explodesigpaths(paths):
 def implodesigpaths(siglist):
   pass
 
-def handlemenu(opts, items, oldrecord, currecord, prompt="option", defaulthotkey=""):
+def handlemenu(args, items, oldrecord, currecord, prompt="option", defaulthotkey=""):
   hotkeys = {}
 
   hotkeystr = ""
@@ -737,10 +738,10 @@ def handlemenu(opts, items, oldrecord, currecord, prompt="option", defaulthotkey
   return res
 
 # @since 20200819
-def getmembercredits(opts:object, memberid:int=None) -> int:
+def getmembercredits(args:object, memberid:int=None) -> int:
   if memberid is None:
-    memberid = getcurrentmemberid()
-  dbh = databaseconnect(opts)
+    memberid = getcurrentmemberid(args)
+  dbh = databaseconnect(args)
   sql = "select credits from engine.member where id=%s" 
   dat = (memberid,)
   cur = dbh.cursor()
@@ -762,25 +763,25 @@ def getmembername(args:object, memberid:int) -> str:
   return None
   
 def getcurrentmembername(args:object) -> str:
-  currentmemberid = getcurrentmemberid()
+  currentmemberid = getcurrentmemberid(args)
   return getmembername(args, currentmemberid)
 
 # @since 20200802
-def setmembercredits(opts:object, memberid:int, amount:int):
+def setmembercredits(args:object, memberid:int, amount:int):
   if amount is None or amount < 0:
     return None
-  dbh = databaseconnect(opts)
+  dbh = databaseconnect(args)
   cur = dbh.cursor()
   sql = "update engine.__member set credits=%s where id=%s"
   dat = (amount, memberid)
   return cur.execute(sql, dat)
 
 # @since 20200802
-def updatememberattribute(dbh:object, opts:object, memberid:int, field:str, amount):
+def updatememberattribute(dbh:object, args:object, memberid:int, field:str, amount):
   pass
 
 # @since 20190924
-def getmember(dbh:object, opts:object, username:str, fields="*") -> dict:
+def getmember(dbh:object, args:object, username:str, fields="*") -> dict:
   sql = "select %s from engine.member where username=%%s" % (fields)
   dat = (username,)
   cur = dbh.cursor()
@@ -790,7 +791,7 @@ def getmember(dbh:object, opts:object, username:str, fields="*") -> dict:
   return res
 
 # @since 20200731
-def getmemberbyid(dbh:object, opts:object, memberid:int, fields="*") -> dict:
+def getmemberbyid(dbh:object, args:object, memberid:int, fields="*") -> dict:
   sql = "select %s from engine.member where id=%%s" % (fields)
   dat = (memberid,)
   cur = dbh.cursor()
@@ -800,6 +801,8 @@ def getmemberbyid(dbh:object, opts:object, memberid:int, fields="*") -> dict:
   return res
 
 def pluralize(amount:int, singular:str, plural:str, quantity=True) -> str:
+  if amount is None or amount == 0:
+    return "no %s" % (plural)
   if quantity is True:
     if amount == 1:
       return "%s %s" % (amount, singular)
@@ -827,7 +830,7 @@ def hr(color="", chars="-=", width=None):
 #        hr += "{/%s}" % (color)
   return hr
 
-def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-=", width=None, opts:object={}):
+def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-=", width=None, args:object={}):
   if width is None:
     width = ttyio.getterminalwidth()
 
@@ -845,10 +848,10 @@ def postgres_to_python_list(arr:str) -> list:
   lst = [a.strip() for a in arr]
   return lst
 
-def getsubnodelist(opts, nodeid):
+def getsubnodelist(args, nodeid):
   sql = "select id from engine.node where parentid=%s"
   dat = (nodeid,)
-  dbh = databaseconnect(opts)
+  dbh = databaseconnect(args)
   cur = dbh.cursor()
   cur.execute(sql, dat)
   res = cur.fetchall()
@@ -878,11 +881,13 @@ def diceroll(sides:int=6, count:int=1, mode:str=None):
 
 # @since 20210129
 def inittopbar(height:int=1):
-  ttyio.echo("{DECSTBM:%d}" % (height+1))
+  ttyio.echo("{DECSC}{DECSTBM:%d}{DECRC}" % (height+1), end="")
   return
 
 # @since 20210129
 def updatetopbar(buf:str):
+  terminalwidth = ttyio.getterminalwidth()
+  # ttyio.echo("{decsc}{home}%s{decrc}" % (buf.ljust(terminalwidth)), end="")
   ttyio.echo("{decsc}{home}%s{decrc}" % (buf), end="")
   return
 
