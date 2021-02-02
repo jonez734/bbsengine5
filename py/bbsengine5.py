@@ -494,7 +494,7 @@ def updatenode(dbh, args:object, id:int, node:dict, reset=False):
 
 def setflag(dbh, memberid, flag, value):
   logentry("setflag(%d, '%s', %s)" % (memberid, flag, value))
-  sql = "delete from map_member_flag where memberid=%s and flagname=%s"
+  sql = "delete from engine.map_member_flag where memberid=%s and name=%s"
   dat = (memberid, flag)
   cur = dbh.cursor()
   cur.execute(sql, dat)
@@ -502,10 +502,10 @@ def setflag(dbh, memberid, flag, value):
 
   mmf = {}
   mmf["memberid"] = memberid
-  mmf["flagname"] = flag
+  mmf["name"] = flag
   mmf["value"] = value
   
-  insert(dbh, "map_member_flag", mmf, returnid=False)
+  insert(dbh, "engine.map_member_flag", mmf, returnid=False)
 
   return
 
@@ -541,7 +541,7 @@ def updateflag(dbh, flag):
   return
 
 # @since 20210106
-def checkmemberflag(args:object, flag:str, memberid:int=None):
+def checkflag(args:object, flag:str, memberid:int=None):
   if memberid is None:
     memberid = getcurrentmemberid(args)
 
@@ -565,7 +565,7 @@ def logentry(message, output=False, level=None, priority=LOG_INFO, stripcommands
     elif level == "error":
       message = "{autored}** error ** "+message+"{/autored}"
 
-  message = ttyio.handlemci(message, stripcommands=True)
+  message = ttyio.interpretmci(message, strip=True)
   syslog(priority, message)
 
   if output is True:
@@ -886,9 +886,9 @@ def inittopbar(height:int=1):
 
 # @since 20210129
 def updatetopbar(buf:str):
-  terminalwidth = ttyio.getterminalwidth()
+  # terminalwidth = ttyio.getterminalwidth()
   # ttyio.echo("{decsc}{home}%s{decrc}" % (buf.ljust(terminalwidth)), end="")
-  ttyio.echo("{decsc}{home}%s{decrc}" % (buf), end="")
+  ttyio.echo("{decsc}{home}%s{decrc}" % (buf), wordwrap=False, end="")
   return
 
 # @since 20210129
