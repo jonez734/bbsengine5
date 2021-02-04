@@ -260,7 +260,8 @@ def inputdate(prompt, epoch=None, **kw):
   else:
     return epoch
 
-def inputboolean(prompt:str, default:bool=None, options="YNTF") -> bool:
+# @since 20210203
+def inputboolean(prompt:str, default:str=None, options="YNTF") -> bool:
   ch = ttyio.inputchar(prompt, options, default)
   if ch == "Y":
           ttyio.echo("Yes")
@@ -780,10 +781,17 @@ def setmembercredits(args:object, memberid:int, amount:int):
 def updatememberattribute(dbh:object, args:object, memberid:int, field:str, amount):
   pass
 
+# @since 20210203
+def getcurrentmember(args:object, fields="*") -> dict:
+  currentmemberid = getcurrentmemberid(args)
+  dbh = databaseconnect(args)
+  return getmemberbyid(dbh, currentmemberid, fields)
+
 # @since 20190924
-def getmember(dbh:object, args:object, username:str, fields="*") -> dict:
+# @since 20210203
+def getmemberbyname(dbh:object, args:object, name:str, fields="*") -> dict:
   sql = "select %s from engine.member where username=%%s" % (fields)
-  dat = (username,)
+  dat = (name,)
   cur = dbh.cursor()
   cur.execute(sql, dat)
   res = cur.fetchone()
@@ -791,7 +799,7 @@ def getmember(dbh:object, args:object, username:str, fields="*") -> dict:
   return res
 
 # @since 20200731
-def getmemberbyid(dbh:object, args:object, memberid:int, fields="*") -> dict:
+def getmemberbyid(dbh:object, memberid:int, fields="*") -> dict:
   sql = "select %s from engine.member where id=%%s" % (fields)
   dat = (memberid,)
   cur = dbh.cursor()
