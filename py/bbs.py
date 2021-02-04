@@ -41,7 +41,8 @@ def member(args, command):
         plaintextpassword = ttyio.inputstring("password: ", "", noneok=False, multiple=False, opts=args)
         loginid = ttyio.inputstring("loginid: ", "", noneok=True, multiple=False, opts=args)
         shell = ttyio.inputstring("shell: ", "", noneok=True, multiple=False, opts=args)
-        sysop = bbsengine.inputboolean("sysop?: ", "N", "YN")
+        ch = ttyio.inputchar("sysop?: ", "N", "YN")
+        sysop = True if ch == "Y" else False
 
         # $sql = "update engine.__member set password=crypt(".$dbh->quote($plaintext, "text").", gen_salt('bf')) where id=".$dbh->quote($memberid);
         member = {}
