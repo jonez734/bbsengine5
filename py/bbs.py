@@ -3,7 +3,7 @@ import re
 import argparse
 
 import ttyio4 as ttyio
-import bbsengine4 as bbsengine
+import bbsengine5 as bbsengine
 
 import libsocrates
 import libogun
@@ -41,6 +41,7 @@ def member(args, command):
         plaintextpassword = ttyio.inputstring("password: ", "", noneok=False, multiple=False, opts=args)
         loginid = ttyio.inputstring("loginid: ", "", noneok=True, multiple=False, opts=args)
         shell = ttyio.inputstring("shell: ", "", noneok=True, multiple=False, opts=args)
+        sysop = bbsengine.inputboolean("sysop?: ", "N", "YN")
 
         # $sql = "update engine.__member set password=crypt(".$dbh->quote($plaintext, "text").", gen_salt('bf')) where id=".$dbh->quote($memberid);
         member = {}
@@ -49,13 +50,14 @@ def member(args, command):
         member["datecreated"] = "now()"
         member["dateapproved"] = "now()"
         dbh = bbsengine.databaseconnect(args)
-        memberid = bbsengine.insert(dbh, "engine.__member", member, mogrify=True)
+        memberid = bbsengine.insert(dbh, "engine.__member", member)
         ttyio.echo("memberid=%r" % (memberid), level="debug")
         attributes = {}
         attributes["loginid"] = loginid
         attributes["shell"] = shell
         bbsengine.setmemberattributes(dbh, memberid, attributes, reset=True)
         bbsengine.setmemberpassword(dbh, memberid, plaintextpassword)
+        bbsengine.setflag(dbh, memberid, "SYSOP", sysop)
         dbh.commit()
         ttyio.echo("member added.")
         return
@@ -116,7 +118,7 @@ def main():
   parser.add_argument("--debug", default=False, action="store_true", help="run debug mode")
   parser.add_argument("--dry-run", dest="dryrun", action="store_true", default=True, help="dry run (no database changes)")
 
-  defaults = {"databasename":"zoidweb5", "databasehost": "localhost", "databaseport":5432, "databaseuser": bbsengine.getcurrentmemberlogin(), "databasepassword":None}
+  defaults = {"databasename":"zoidweb5", "databasehost": "localhost", "databaseport":5432, "databaseuser": None, "databasepassword":None}
   bbsengine.buildargdatabasegroup(parser, defaults)
 
   subparsers = parser.add_subparsers(dest="command", help='sub-command help')
