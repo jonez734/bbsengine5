@@ -14,6 +14,21 @@ import libogun
 # @see https://docs.python.org/3.3/library/argparse.html#module-argparse
 #
 
+def updatetopbar(args, area):
+    currentmember = bbsengine.getcurrentmember(args)
+    
+    terminalwidth = bbsengine.getterminalwidth()
+    leftbuf = area
+    rightbuf = ""
+    if currentmember is not None:
+        rightbuf += "| %s | %s" % (currentmember["name"], bbsengine.pluralize(currentmember["credits"], "credit", "credits"))
+    # ttyio.echo("updatetopbar.100: rightbuf=%r (len=%s) leftbuf=%r (len=%s)" % (rightbuf, len(rightbuf), leftbuf, len(leftbuf)))
+    buf = "{bggray}{white} %s%s " % (leftbuf.ljust(terminalwidth-len(rightbuf)-2, "-"), rightbuf) # +leftbuf.ljust(terminalwidth-len(rightbuf))+rightbuf+" {/all}"
+    # ttyio.echo("updatetopbar.140: terminalwidth=%d" % (terminalwidth))
+    bbsengine.updatetopbar(buf)
+    # ttyio.echo("updatetopbar.120: buf=%r (len=%s)" % (buf, len(buf)))
+    return
+
 def verifyMemberNotFound(args, name):
     ttyio.echo("args=%r" % (args))
     dbh = bbsengine.databaseconnect(args)
@@ -26,6 +41,9 @@ def verifyMemberNotFound(args, name):
     return False
 
 def member(args, command):
+
+    updatetopbar(args, "member")
+
     ttyio.echo("[N]ew")
     ttyio.echo("[E]dit")
     ttyio.echo("[D]elete")
@@ -93,6 +111,7 @@ class shellCommandCompleter(object):
 
 def shellout(args, command):
   shell = command["shell"]
+  updatetopbar(args, shell)
   return os.system(shell)
 
 def help():
@@ -152,10 +171,14 @@ def main():
     ttyio.echo("buf=%r" % (buf))
     return
 
+  bbsengine.inittopbar()
+ 
   done = False
   while not done:
     # @todo: handle subcommands as tab-complete
     # ttyio.echo("args=%r" % (args), level="debug")
+
+    updatetopbar(args, "zoid technologies")
 
     # ttyio.echo(bbsengine.datestamp(format="%c %Z"))
     prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}zoidtech main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
