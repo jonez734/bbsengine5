@@ -15,16 +15,16 @@ import libogun
 #
 
 def updatetopbar(args, area):
+    ttyio.echo("updatetopbar.100: area=%r" % (area))
     currentmember = bbsengine.getcurrentmember(args)
-    
     terminalwidth = bbsengine.getterminalwidth()
     leftbuf = area
     rightbuf = ""
     if currentmember is not None:
         rightbuf += "| %s | %s" % (currentmember["name"], bbsengine.pluralize(currentmember["credits"], "credit", "credits"))
     # ttyio.echo("updatetopbar.100: rightbuf=%r (len=%s) leftbuf=%r (len=%s)" % (rightbuf, len(rightbuf), leftbuf, len(leftbuf)))
-    buf = "{bggray}{white} %s%s " % (leftbuf.ljust(terminalwidth-len(rightbuf)-2, "-"), rightbuf) # +leftbuf.ljust(terminalwidth-len(rightbuf))+rightbuf+" {/all}"
-    # ttyio.echo("updatetopbar.140: terminalwidth=%d" % (terminalwidth))
+    buf = "{bggray}{white} %s%s " % (leftbuf.ljust(terminalwidth-len(rightbuf)-2, "-"), rightbuf)
+    ttyio.echo("updatetopbar.140: terminalwidth=%d" % (terminalwidth))
     bbsengine.updatetopbar(buf)
     # ttyio.echo("updatetopbar.120: buf=%r (len=%s)" % (buf, len(buf)))
     return
