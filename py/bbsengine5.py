@@ -896,7 +896,7 @@ def inittopbar(height:int=1):
 def updatetopbar(buf:str):
   # terminalwidth = ttyio.getterminalwidth()
   # ttyio.echo("{decsc}{home}%s{decrc}" % (buf.ljust(terminalwidth)), end="")
-  ttyio.echo("{decsc}{home}%s{decrc}" % (buf), wordwrap=False, end="")
+  ttyio.echo("{decsc}{home}%s{decrc}" % (buf), wordwrap=False)
   return
 
 # @since 20210129
