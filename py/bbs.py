@@ -21,8 +21,7 @@ def updatetopbar(args, area):
     rightbuf = ""
     if currentmember is not None:
         rightbuf += "| %s | %s" % (currentmember["name"], bbsengine.pluralize(currentmember["credits"], "credit", "credits"))
-    buf = "{bggray}{white} %s%s " % (leftbuf.ljust(terminalwidth-len(rightbuf)-2, "-"), rightbuf)
-    ttyio.echo("updatetopbar.140: terminalwidth=%d" % (terminalwidth))
+    buf = "{bggray}{white} %s %s " % (leftbuf.ljust(terminalwidth-len(rightbuf)-3, "-"), rightbuf)
     bbsengine.updatetopbar(buf)
     return
 
@@ -58,6 +57,7 @@ def member(args, command):
         shell = ttyio.inputstring("shell: ", "", noneok=True, multiple=False, opts=args)
         ch = ttyio.inputchar("sysop?: ", "N", "YN")
         sysop = True if ch == "Y" else False
+        credits = ttyio.inputinteger("credits: ", "420", noneok=True, multiple=False, opts=args)
 
         # $sql = "update engine.__member set password=crypt(".$dbh->quote($plaintext, "text").", gen_salt('bf')) where id=".$dbh->quote($memberid);
         member = {}
@@ -74,6 +74,7 @@ def member(args, command):
         bbsengine.setmemberattributes(dbh, memberid, attributes, reset=True)
         bbsengine.setmemberpassword(dbh, memberid, plaintextpassword)
         bbsengine.setflag(dbh, memberid, "SYSOP", sysop)
+        bbsengine.setmembercredits(dbh, memberid, credits)
         dbh.commit()
         ttyio.echo("member added.")
         return
