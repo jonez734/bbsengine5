@@ -15,12 +15,14 @@ export PROD = $(HOST):/srv/www/vhosts/bbsengine.org/
 export PRODDOCROOT = $(PROD)80/html/
 export STAGE = /srv/staging/bbsengine.org/
 export STAGEDOCROOT = $(STAGE)80/html/
-export VERSION = "v5"
+export VERSION = v5
+
 all:
 
 clean:
 	-$(MAKE) -C php clean;
 	-$(MAKE) -C handbook clean;
+	-rm *~
 
 release:
 	echo "-=- making a new release of $(PROJECT) -=-";
