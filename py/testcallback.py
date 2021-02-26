@@ -1,7 +1,11 @@
 import importlib
 
+def addpost(args:object=None):
+    print("inside addpost!")
+    return
+
 def main():
-    buf = "addpost"
+    buf = "socrates.addpost"
 
     s = buf.split(".")
     print("s=%r" % (s))
@@ -25,6 +29,7 @@ def main():
             print("func=%r" % (func))
             if callable(func) is True:
                 print("yes!")
+                func()
     else:
         if callable(functionname) is True:
             print("callable")
