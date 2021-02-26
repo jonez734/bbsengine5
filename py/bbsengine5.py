@@ -1,3 +1,7 @@
+#
+# (C) 2008-2021 Zoid Technologies. All Rights Reserved.
+#
+
 import re, os, sys, pwd, time, random
 
 import psycopg2, psycopg2.extras
@@ -181,32 +185,6 @@ def databaseconnect(args):
     
     return _databaseconnect(**kw)
 
-def dbconnect(configfile, section):
-  if not os.path.isfile(configfile):
-    print()
-    print ("configfile %r is not readable." % (configfile))
-    print()
-    return None
-  
-  cfg = loadconfig(configfile)
-
-  if not cfg.has_section(section):
-    print
-    print ("configfile %r does not have a section called %r" % (configfile, section))
-    print
-    return None
-
-  kw = {}
-  kw["database"] = cfg.get(section, "dbname")
-  kw["host"] = cfg.get(section, "dbhost")
-  if cfg.has_option(section, "dbuser"):
-    kw["user"] = cfg.get(section, "dbuser")
-  if cfg.has_option(section, "dbpass"):
-    kw["password"] = cfg.get(section, "dbpass")
-  
-  return _databaseconnect(**kw)
-#  return psycopg2.connect(connection_factory=psycopg2.extras.RealDictConnection, **kw)
-
 import time as _time
 
 # from http://docs.python.org/release/2.5.2/lib/datetime-tzinfo.html
@@ -260,27 +238,27 @@ def inputdate(prompt, epoch=None, **kw):
   else:
     return epoch
 
-# @since 20210203
-def inputboolean(prompt:str, default:str=None, options="YNTF") -> bool:
-  ch = ttyio.inputchar(prompt, options, default)
-  if ch == "Y":
-          ttyio.echo("Yes")
-          return True
-  elif ch == "T":
-          ttyio.echo("True")
-          return True
-  elif ch == "N":
-          ttyio.echo("No")
-          return False
-  elif ch == "F":
-          ttyio.echo("False")
-          return False
-
 def areyousure(prompt="are you sure? ", default="N", options="YN") -> bool:
   res = inputboolean(prompt, default=default, options=options)
   if res is True:
     return 0
   return 1
+
+# @since 20210223
+def getsig(dbh, path):
+  cur = dbh.cursor()
+  sql = "select * from engine.sig where path ~ %s"
+  dat = (path,)
+  cur.execute(sql, dat)
+  rec = cur.fetchone()
+  sig = {}
+  sig["title"] = rec["title"]
+  sig["intro"] = rec["intro"]
+  sig["path"] = rec["path"]
+  for column in ("name", "lastmodified", "dateposted", "lastmodifiedbyid", "postedbyid", "dateupdated", "updatedbyid", "datecreated", "createdbyid", "attributes"):
+    if column in rec:
+      sig[column] = rec[column]
+  return sig
 
 def getsigpathfromid(dbh, id):
   sql = "select path from engine.sig where id=%s"
@@ -379,7 +357,7 @@ def inputsig(args, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigp
   if args.debug is True:
     ttyio.echo("inputsig entered. multiple=%r verify=%r" % (multiple, verify), level="debug")
 
-  return ttyio.inputstring(prompt, oldvalue, opts=args, verify=verify, multiple=multiple, completer=sigcompleter(args), returnseq=True, **kw)
+  return ttyio.inputstring(prompt, oldvalue, args=args, verify=verify, multiple=multiple, completer=sigcompleter(args), returnseq=True, **kw)
 
 def getsignamefromid(dbh, id):
   if id is None:
@@ -436,7 +414,7 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
   # ttyio.echo("bbsengine.insert.100: sql=%s dat=%s" % (sql, dat), level="debug")
   cur = dbh.cursor()
   if mogrify is True:
-    ttyio.echo(str(cur.mogrify(sql, dat)), level="debug")
+    ttyio.echo(cur.mogrify(sql, [tuple(v.values() for v in dat)]), level="debug")
   cur.execute(sql, dat)
   if returnid is True:
     res = cur.fetchone()
@@ -466,6 +444,7 @@ def updatenodesigs(dbh, args, nodeid, sigpaths):
     insert(dbh, "engine.map_node_sig", sigmap, returnid=False, mogrify=False)
   dbh.commit()
   return None
+
 
 def updatenodeattributes(dbh, args:object, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
   if reset is False:
@@ -543,8 +522,7 @@ def updateflag(dbh, flag):
 
 # @since 20210106
 def checkflag(args:object, flag:str, memberid:int=None):
-  if memberid is None:
-    memberid = getcurrentmemberid(args)
+  memberid = getcurrentmemberid(args)
 
   dbh = databaseconnect(args)
   sql = "select f.name, coalesce(mmf.value, f.defaultvalue) as value from engine.flag as f left outer join engine.map_member_flag as mmf on (f.name=mmf.name and mmf.memberid=%s) where f.name=%s"
@@ -591,9 +569,14 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
   stamp = strftime(format, t.timetuple())
   return stamp
 
+currentmemberid = None
 # @since 20120306
 def getcurrentmemberid(args):
-  # membermap = {"jam" : 1}
+  global currentmemberid
+
+  if currentmemberid is not None:
+    return currentmemberid
+
   loginid = pwd.getpwuid(os.geteuid())[0]
   sql = "select id from engine.member where loginid=%s" 
   dat = (loginid,)
@@ -601,9 +584,10 @@ def getcurrentmemberid(args):
   cur = dbh.cursor()
   cur.execute(sql, dat)
   res = cur.fetchone()
-  if args.debug is True:
-    ttyio.echo("getcurrentmemberid.100: res=%r" % (res), level="debug")
-  return res["id"]
+  # if args.debug is True:
+  currentmemberid = res["id"]
+  ttyio.echo("getcurrentmemberid.100: currentmemberid=%r" % (currentmemberid), level="debug")
+  return currentmemberid
 
   if res is None:
     return None
@@ -740,8 +724,6 @@ def handlemenu(args, items, oldrecord, currecord, prompt="option", defaulthotkey
 
 # @since 20200819
 def getmembercredits(args:object, memberid:int=None) -> int:
-  if memberid is None:
-    memberid = getcurrentmemberid(args)
   dbh = databaseconnect(args)
   sql = "select credits from engine.member where id=%s" 
   dat = (memberid,)
@@ -751,6 +733,10 @@ def getmembercredits(args:object, memberid:int=None) -> int:
   if res is None:
     return None
   return res["credits"] if "credits" in res else None
+
+def getcurrentmembercredits(args) -> int:
+  memberid = getcurrentmemberid(args)
+  return getmembercredits(args, memberid)
 
 def getmembername(args:object, memberid:int) -> str:
   dbh = databaseconnect(args)
@@ -763,12 +749,12 @@ def getmembername(args:object, memberid:int) -> str:
     return res["name"]
   return None
   
-def getcurrentmembername(args:object) -> str:
+def getcurrentmembername(args) -> str:
   currentmemberid = getcurrentmemberid(args)
   return getmembername(args, currentmemberid)
 
 # @since 20200802
-def setmembercredits(args:object, memberid:int, amount:int):
+def setmembercredits(dbh:object, memberid:int, amount:int):
   if amount is None or amount < 0:
     return None
   dbh = databaseconnect(args)
@@ -867,14 +853,14 @@ def getsubnodelist(args, nodeid):
   return res
 
 # @since 20201228
-def buildargdatabasegroup(parser:object, defaults:dict={}):
-    databasename = defaults["databasename"] if "databasename" in defaults else "zoidweb4"
+def buildargdatabasegroup(parser:object, defaults:dict={}, label="database"):
+    databasename = defaults["databasename"] if "databasename" in defaults else "zoidweb5"
     databasehost = defaults["databasehost"] if "databasehost" in defaults else "localhost"
     databaseport = defaults["databaseport"] if "databaseport" in defaults else "5432"
     databaseuser = defaults["databaseuser"] if "databaseuser" in defaults else getcurrentmemberlogin()
     databasepassword = defaults["databasepassword"] if "databasepassword" in defaults else None
     
-    group = parser.add_argument_group("database")
+    group = parser.add_argument_group(label)
     group.add_argument("--databasename", dest="databasename", action="store", default=databasename, help="database name")
     group.add_argument("--databasehost", dest="databasehost", action="store", default=databasehost, help="database host")
     group.add_argument("--databaseport", dest="databaseport", action="store", default=databaseport, type=int, help="database port")
@@ -887,6 +873,12 @@ def buildargdatabasegroup(parser:object, defaults:dict={}):
 def diceroll(sides:int=6, count:int=1, mode:str=None):
   return random.randint(1, sides)
 
+# @since 20210222
+def initscreen(topmargin=0, bottommargin=0):
+  terminalheight = ttyio.getterminalheight()
+  ttyio.echo("initscreen.100: terminalheight=%r" % (terminalheight))
+  ttyio.echo("{decsc}{decstbm:%d,%d}{decrc}" % (topmargin, terminalheight-bottommargin))
+
 # @since 20210129
 def inittopbar(height:int=1):
   ttyio.echo("{DECSC}{DECSTBM:%d}{DECRC}" % (height+1), end="")
@@ -896,8 +888,18 @@ def inittopbar(height:int=1):
 def updatetopbar(buf:str):
   # terminalwidth = ttyio.getterminalwidth()
   # ttyio.echo("{decsc}{home}%s{decrc}" % (buf.ljust(terminalwidth)), end="")
-  ttyio.echo("{decsc}{home}%s{decrc}" % (buf), wordwrap=False)
+  ttyio.echo("{decsc}{/all}{home}%s{el}{decrc}" % (buf), wordwrap=False)
   return
+
+# @since 20210222
+def updatebottombar(buf:str):
+  terminalheight = ttyio.getterminalheight()
+  ttyio.echo("{decsc}{/all}{curpos:%d,0}%s{el}{decrc}" % (terminalheight, buf), wordwrap=False, end="")
+  return
+
+def initbottombar(height:int=1):
+  terminallines = ttyio.getterminalheight()
+  ttyio.echo("{DECSC}{DECSTBM:0,%d}{DECRC}" % (terminallines-1))
 
 # @since 20210129
 def setmemberpassword(dbh, memberid, plaintextpassword):
@@ -919,3 +921,15 @@ def setmemberattributes(dbh, memberid, attributes, reset=False):
 
   dat = (Json(attributes),)
   return cur.execute(sql, dat)
+
+# @since 20210220
+def insertsig(args, dbh, sig):
+  attributes = sig["attributes"] if "attributes" in sig else {}
+  sig["attributes"] = Json(attributes)
+  sig["datecreated"] = "now()"
+  sig["createdbyid"] = getcurrentmemberid(args)
+  return insert(dbh, "engine.__sig", sig, returnid=True, primarykey="path", mogrify=False)
+
+# @since 20210220
+def updatesig(dbh, path, sig):
+  pass
