@@ -831,12 +831,11 @@ def hr(color="", chars="-=", width=None):
 
 def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-", width=None, args:object=Namespace()):
   if width is None:
-    width = ttyio.getterminalwidth()-1
+    width = ttyio.getterminalwidth()-2
 
-  ttyio.echo("{ACS:ULCORNER}"+hr(color=hrcolor, chars=hrchars, width=width)+"{acs:urcorner}", end="")
-  ttyio.echo("{f6}{ACS:VLINE}%s%s{/all}{ACS:VLINE}{/all}" % (titlecolor, title.center(width-len(hrchars))))
-  ttyio.echo("{acs:llcorner}"+hr(color=hrcolor, chars=hrchars, width=width)+"{acs:lrcorner}")
-  ttyio.echo("{/all}", end="")
+  ttyio.echo("{/all}{acs:ulcorner}{acs:hline:%s}{acs:urcorner}" % (width), end="")
+  ttyio.echo("{f6}{acs:vline}%s%s{/all}{acs:vline}{/all}" % (titlecolor, title.center(width)), end="")
+  ttyio.echo("{f6}{acs:llcorner}{acs:hline:%s}{acs:lrcorner}{/all}" % (width))
   return
 
 # @since 20200928
