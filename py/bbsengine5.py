@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, tzinfo
 
 from syslog import *
 
+from argparse import Namespace
+
 try:
   import ttyio4 as ttyio
 except:
@@ -811,10 +813,13 @@ def startsession():
   pass
 
 def hr(color="", chars="-=", width=None):
-  charslen = len(chars)
   if width is None:
     width = ttyio.getterminalwidth()
+
+  buf = "{acs:hline:%d}" % (width-1)
+  return buf
   
+  charslen = len(chars)
   hr = " "*1 # charslen
 
   if color != "":
@@ -824,14 +829,14 @@ def hr(color="", chars="-=", width=None):
 #        hr += "{/%s}" % (color)
   return hr
 
-def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-=", width=None, args:object={}):
+def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-", width=None, args:object=Namespace()):
   if width is None:
-    width = ttyio.getterminalwidth()
+    width = ttyio.getterminalwidth()-1
 
-  ttyio.echo(hr(color=hrcolor, chars=hrchars, width=width))
-  ttyio.echo("  %s%s{/all}" % (titlecolor, title.center(width-len(hrchars)*2-3)))
-  ttyio.echo(hr(color=hrcolor, chars=hrchars, width=width))
-  ttyio.echo("{/all}")
+  ttyio.echo("{ACS:ULCORNER}"+hr(color=hrcolor, chars=hrchars, width=width)+"{acs:urcorner}", end="")
+  ttyio.echo("{f6}{ACS:VLINE}%s%s{/all}{ACS:VLINE}{/all}" % (titlecolor, title.center(width-len(hrchars))))
+  ttyio.echo("{acs:llcorner}"+hr(color=hrcolor, chars=hrchars, width=width)+"{acs:lrcorner}")
+  ttyio.echo("{/all}", end="")
   return
 
 # @since 20200928
