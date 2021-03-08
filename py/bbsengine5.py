@@ -429,7 +429,8 @@ def insertnode(dbh, args:object, node:dict, table:str="engine.__node", returnid:
   node["attributes"] = Json(node["attributes"])
   node["datecreated"] = "now()"
   node["createdbyid"] = getcurrentmemberid(args)
-  ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
+  if args.debug is True:
+    ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
 def updatenodesigs(dbh, args, nodeid, sigpaths):
