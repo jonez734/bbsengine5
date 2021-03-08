@@ -17,6 +17,7 @@ create or replace view engine.member as
   select m.*,
   (select count(notify1.id) from engine.notify as notify1 where notify1.memberid = m.id) as notifycount,
   (select count(notify2.id) from engine.notify as notify2 where notify2.memberid = m.id and notify2.status='sent') as sentnotifycount,
+  (attributes->>'loginid')::text as loginid,
   extract(epoch from m.datecreated) as datecreatedepoch,
   extract(epoch from m.lastlogin) as lastloginepoch,
   extract(epoch from m.dateapproved) as dateapprovedepoch,
