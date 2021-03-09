@@ -1,5 +1,4 @@
 import os
-import re
 import argparse
 import importlib
 
@@ -23,7 +22,7 @@ def processcommand(args, command):
     modulepath = None
     functionname = s[0]
 
-  print("modulepath=%r functionname=%r" % (modulepath, functionname))
+  ttyio.echo("modulepath=%r functionname=%r" % (modulepath, functionname), level="debug", interpret=False)
 
   if modulepath is not None:
     try:
@@ -189,7 +188,7 @@ def main():
   p.add_argument("--eros", action="store_true", required=False, default=False, help="marks a post as 'adult content'")
   p.add_argument("--draft", action="store_true", required=False, default=True, help="mark the post as 'draft'")
   p.add_argument("--body", type=argparse.FileType("r"), required=False, help="filename used for body of post")
-  p.add_argument("--title", required=False, help="title of post")
+  p.add_argument("--title", required=False, action="store", help="title of post")
 
   p = subparsers.add_parser("post-read-new", help="read new posts")
   # parser_b.add_argument('--baz', choices='XYZ', help='baz help')
@@ -199,7 +198,7 @@ def main():
   if args.command == "post-add":
     ttyio.echo("socrates post-add")
     buf = ["socrates"]
-    for attr in ("databasehost", "databasename", "databaseport", "databaseuser", "databasepassword"):
+    for attr in ("databasehost", "databasename", "databaseport", "databaseuser", "databasepassword", "title", "freeze", "eros", "draft"):
       if attr in args:
         buf.append("--%s=%r" % (attr, getattr(args, attr)))
     buf.append("post-add")
@@ -219,13 +218,13 @@ def main():
     # ttyio.echo("args=%r" % (args), level="debug")
 
     bbsengine.inittopbar()
-    updatetopbar(args, "zoid technologies")
+    updatetopbar(args, "zoid technologies bbs")
 
     # ttyio.echo(bbsengine.datestamp(format="%c %Z"))
     prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}zoidtech main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
     try:
       # ttyio.echo("prompt=%r" % (prompt))
-      buf = ttyio.inputstring(prompt, multiple=False, returnseq=False, verify=None, completer=shellCommandCompleter(args))
+      buf = ttyio.inputstring(prompt, multiple=False, returnseq=False, verify=None, completer=shellCommandCompleter(args), completerdelims=" ")
     except EOFError:
       ttyio.echo("EOF")
       return
@@ -259,5 +258,7 @@ def main():
   # return ttyio.inputstring(prompt, oldvalue, opts=opts, verify=verify, multiple=multiple, completer=sigcompleter(opts), returnseq=True, **kw)
 
 if __name__ == "__main__":
-  main()
-  ttyio.echo("{reset}")
+  try:
+    main()
+  finally:
+    ttyio.echo("{reset}")
