@@ -586,7 +586,10 @@ def getcurrentmemberid(args):
   dbh = databaseconnect(args)
   cur = dbh.cursor()
   cur.execute(sql, dat)
+  if cur.rowcount == 0:
+    return None
   res = cur.fetchone()
+
   # if args.debug is True:
   currentmemberid = res["id"]
   ttyio.echo("getcurrentmemberid.100: currentmemberid=%r" % (currentmemberid), level="debug")
@@ -862,7 +865,7 @@ def buildargdatabasegroup(parser:object, defaults:dict={}, label="database"):
     databasename = defaults["databasename"] if "databasename" in defaults else "zoidweb5"
     databasehost = defaults["databasehost"] if "databasehost" in defaults else "localhost"
     databaseport = defaults["databaseport"] if "databaseport" in defaults else "5432"
-    databaseuser = defaults["databaseuser"] if "databaseuser" in defaults else getcurrentmemberlogin()
+    databaseuser = defaults["databaseuser"] if "databaseuser" in defaults else None
     databasepassword = defaults["databasepassword"] if "databasepassword" in defaults else None
     
     group = parser.add_argument_group(label)
