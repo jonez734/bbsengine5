@@ -1,0 +1,14 @@
+<div class="blurb">
+<div class="header"><h1>bbsengine3 handbook</h1></div>
+<div class="body">
+{if count($chapters) > 0}
+<ul>
+{foreach $chapters as $chapter}
+<li><a href="/handbook/{$chapter.file|basename}">{$chapter.file|basename:".txt"}</a> (updated: {$chapter.datemodifiedepoch|datestamp} ({$chapter.datemodifiedepoch|ago})</li>
+{/foreach}
+</ul>
+{else}
+<h2>No chapters available</h2>
+{/if}
+</div> {* body *}
+</div> {* blurb *}
