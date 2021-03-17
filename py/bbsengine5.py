@@ -448,7 +448,6 @@ def updatenodesigs(dbh, args, nodeid, sigpaths):
   dbh.commit()
   return None
 
-
 def updatenodeattributes(dbh, args:object, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
   if reset is False:
     sql = "update %s set attributes=attributes||%%s where id=%s" % (table, nodeid)
@@ -763,7 +762,7 @@ def getcurrentmembername(args) -> str:
 def setmembercredits(dbh:object, memberid:int, amount:int):
   if amount is None or amount < 0:
     return None
-  dbh = databaseconnect(args)
+  # dbh = databaseconnect(args)
   cur = dbh.cursor()
   sql = "update engine.__member set credits=%s where id=%s"
   dat = (amount, memberid)
@@ -819,8 +818,7 @@ def startsession():
 def hr(color="", chars="-=", width=None):
   if width is None:
     width = ttyio.getterminalwidth()
-
-  buf = "{acs:hline:%d}" % (width-1)
+  buf = color+"{acs:hline:%d}" % (width-1)
   return buf
   
   charslen = len(chars)
@@ -833,13 +831,13 @@ def hr(color="", chars="-=", width=None):
 #        hr += "{/%s}" % (color)
   return hr
 
-def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-", width=None, args:object=Namespace()):
+def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None):
   if width is None:
     width = ttyio.getterminalwidth()-2
 
-  ttyio.echo("{/all}{acs:ulcorner}{acs:hline:%s}{acs:urcorner}" % (width), end="")
+  ttyio.echo("{/all}%s{acs:hline:%s}%s" % (ulcorner, width, urcorner), end="")
   ttyio.echo("{f6}{acs:vline}%s%s{/all}{acs:vline}{/all}" % (titlecolor, title.center(width)), end="")
-  ttyio.echo("{f6}{acs:llcorner}{acs:hline:%s}{acs:lrcorner}{/all}" % (width))
+  ttyio.echo("{f6}%s{acs:hline:%s}%s{/all}" % (llcorner, width, lrcorner))
   return
 
 # @since 20200928
