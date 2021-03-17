@@ -34,7 +34,7 @@ def processcommand(args, command):
         func = getattr(m, functionname)
         print("func=%r" % (func))
         if callable(func) is True:
-            print("yes!")
+            # print("yes!")
             func(args, command)
   else:
     ttyio.echo("processcallback.100: functionname=%r" % (functionname), level="debug")
@@ -71,6 +71,18 @@ def verifyMemberNotFound(args, name):
     return False
 
 def member(args, command):
+    def edit():
+      updatetopbar(args, "edit member")
+      name = ttyio.inputstring("name: ", "", verify=verifyMemberFound, noneok=True, multiple=False, args=args)
+      if name is None:
+        ttyio.echo("aborted.")
+        return
+      ttyio.echo("begin editing member.")
+      dbh = databaseconnect(args)
+      member = bbsengine.getmemberbyname(dbh, args, name)
+      ttyio.echo("member=%r" % (member), interpret=False)
+      return
+
     def new():
       updatetopbar(args, "new member")
       name = ttyio.inputstring("name: ", "", verify=verifyMemberNotFound, noneok=False, multiple=False, args=args)
@@ -82,7 +94,7 @@ def member(args, command):
       sysop = True if ch == "Y" else False
       credits = ttyio.inputinteger("credits: ", "42", noneok=True, multiple=False, args=args)
 
-      if inputboolean("save?: ", "YN", "N") is False:
+      if ttyio.inputboolean("save?: ", "", "YN") is False:
         ttyio.echo("{f6}member not added.")
         return
 
@@ -111,16 +123,19 @@ def member(args, command):
       ttyio.echo("{/all}")
 
       ttyio.echo("[N]ew")
-#      ttyio.echo("[E]dit")
+      ttyio.echo("[E]dit")
 #      ttyio.echo("[D]elete")
       ttyio.echo("{f6}[Q]uit")
-      ch = ttyio.inputchar("member [NQ]: ", "NQ", "Q")
+      ch = ttyio.inputchar("member [NEQ]: ", "NEQ", "Q")
       if ch == "Q":
-          ttyio.echo("Q -- Quit")
-          done = True
+        ttyio.echo("Q -- Quit")
+        done = True
       elif ch == "N":
-          ttyio.echo("N -- New{f6}")
-          new()
+        ttyio.echo("N -- New{f6}")
+        new()
+      elif ch == "E":
+        ttyio.echo("E -- Edit{f6}")
+        edit()
     return
 
 commands = (
@@ -261,4 +276,4 @@ if __name__ == "__main__":
   try:
     main()
   finally:
-    ttyio.echo("{reset}")
+    ttyio.echo("{/all}{reset}")
