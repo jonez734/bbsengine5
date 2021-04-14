@@ -835,9 +835,9 @@ def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-"
   if width is None:
     width = ttyio.getterminalwidth()-2
 
-  ttyio.echo("{/all}%s{acs:hline:%s}%s" % (ulcorner, width, urcorner), end="")
-  ttyio.echo("{f6}{acs:vline}%s%s{/all}{acs:vline}{/all}" % (titlecolor, title.center(width)), end="")
-  ttyio.echo("{f6}%s{acs:hline:%s}%s{/all}" % (llcorner, width, lrcorner))
+  ttyio.echo("{/all}%s%s{acs:hline:%s}%s" % (hrcolor, ulcorner, width, urcorner), end="")
+  ttyio.echo("{f6}{acs:vline}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, title.center(width), hrcolor), end="")
+  ttyio.echo("{f6}%s%s{acs:hline:%s}%s{/all}" % (hrcolor, llcorner, width, lrcorner))
   return
 
 # @since 20200928
@@ -882,30 +882,32 @@ def diceroll(sides:int=6, count:int=1, mode:str=None):
 # @since 20210222
 def initscreen(topmargin=0, bottommargin=0):
   terminalheight = ttyio.getterminalheight()
-  ttyio.echo("initscreen.100: terminalheight=%r" % (terminalheight))
+  # ttyio.echo("initscreen.100: terminalheight=%r" % (terminalheight))
   ttyio.echo("{decsc}{decstbm:%d,%d}{decrc}" % (topmargin, terminalheight-bottommargin))
 
 # @since 20210129
 def inittopbar(height:int=1):
-  ttyio.echo("{DECSC}{DECSTBM:%d}{DECRC}" % (height+1), end="")
+  ttyio.echo("{decsc}{decstbm:%d}{decrc}" % (height+1), end="")
   return
 
 # @since 20210129
 def updatetopbar(buf:str):
   # terminalwidth = ttyio.getterminalwidth()
   # ttyio.echo("{decsc}{home}%s{decrc}" % (buf.ljust(terminalwidth)), end="")
-  ttyio.echo("{decsc}{/all}{home}%s{el}{decrc}" % (buf), wordwrap=False)
+  ttyio.echo("{decsc}{/all}{home}%s{eraseline}{decrc}" % (buf), wordwrap=False)
   return
 
+# updatebottombar() - imported from bbsengine
 # @since 20210222
-def updatebottombar(buf:str):
+def updatebottombar(buf:str) -> None:
   terminalheight = ttyio.getterminalheight()
-  ttyio.echo("{decsc}{/all}{curpos:%d,0}%s{el}{decrc}" % (terminalheight, buf), wordwrap=False, end="")
+  # ttyio.echo("updatebottombar.100: buf=%r" % (buf), interpret=False, level="debug")
+  ttyio.echo("{decsc}{/all}{curpos:%d,0}%s{eraseline}{decrc}" % (terminalheight, buf), wordwrap=False, end="")
   return
 
 def initbottombar(height:int=1):
-  terminallines = ttyio.getterminalheight()
-  ttyio.echo("{DECSC}{DECSTBM:0,%d}{DECRC}" % (terminallines-1))
+  terminalheight = ttyio.getterminalheight()
+  ttyio.echo("{decsc}{decstbm:0,%d}{decrc}" % (terminalheight-1))
 
 # @since 20210129
 def setmemberpassword(dbh, memberid, plaintextpassword):
@@ -953,3 +955,14 @@ def updateprogress(iteration, total):
   buf = "{lightgreen}Progress [% 3s%%]: [%s]{/fgcolor}" % (percent, bar)
   updatebottombar(buf)
   return
+
+def verifyFileExistsReadable(args, filename):
+  filename = os.path.expanduser(filename)
+  filename = os.path.expandvars(filename)
+  ttyio.echo("filename=%r" % (filename))
+  if os.access(filename, os.R_OK) is True and os.path.isfile(filename) is True:
+    return True
+  return False
+
+def inputfilename(args, prompt, default, verify=verifyFileExistsReadable, **kw):
+  return ttyio.inputstring(prompt, default, verify=verify, **kw)
