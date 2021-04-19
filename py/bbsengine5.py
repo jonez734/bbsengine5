@@ -831,7 +831,7 @@ def hr(color="", chars="-=", width=None):
 #        hr += "{/%s}" % (color)
   return hr
 
-def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="-", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None):
+def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None):
   if width is None:
     width = ttyio.getterminalwidth()-2
 
