@@ -29,7 +29,7 @@ bbsengine.initscreen(topmargin=2, bottommargin=1)
 bbsengine.updatetopbar("this is a test")
 bbsengine.updatebottombar("test here")
 for x in range(0, 50):
-    ttyio.echo("%d: %d" % (x, bbsengine.diceroll(20)), end="")
+    ttyio.echo("%d: %d" % (x, bbsengine.diceroll(20)), flush=True)
     time.sleep(0.050)
     updateprogress(x, 50)
 bbsengine.updatebottombar("{el}")
