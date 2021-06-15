@@ -233,10 +233,10 @@ def main():
     # ttyio.echo("args=%r" % (args), level="debug")
 
     bbsengine.inittopbar()
-    updatetopbar(args, "zoid technologies bbs")
+    updatetopbar(args, "gfd3")
 
     # ttyio.echo(bbsengine.datestamp(format="%c %Z"))
-    prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}zoidtech main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
+    prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}gfd3 main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
     try:
       # ttyio.echo("prompt=%r" % (prompt))
       buf = ttyio.inputstring(prompt, multiple=False, returnseq=False, verify=None, completer=shellCommandCompleter(args), completerdelims=" ")
@@ -264,7 +264,8 @@ def main():
       callback = c["callback"]
       if argv[0] == command:
         found = True
-        processcommand(args, c)
+        bbsengine.runcallback(args, callback)
+        # processcommand(args, c)
         break
     if found is False:
       ttyio.echo("command not found", level="error")
