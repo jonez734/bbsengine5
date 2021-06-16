@@ -3,7 +3,9 @@ import argparse
 import importlib
 
 import ttyio4 as ttyio
+
 import bbsengine5 as bbsengine
+# from bbsengine5 import runcallback
 
 #
 # @see https://sites.google.com/site/xiangyangsite/home/technical-tips/software-development/python/python-readline-completions
@@ -12,42 +14,6 @@ import bbsengine5 as bbsengine
 # @see https://pymotw.com/3/importlib/
 #
 
-def processcommand(args, command):
-  callback = command["callback"]
-  s = callback.split(".")
-  if len(s) > 1:
-    modulepath = ".".join(s[:-1])
-    functionname = s[len(s)-1:][0]
-  else:
-    modulepath = None
-    functionname = s[0]
-
-  ttyio.echo("modulepath=%r functionname=%r" % (modulepath, functionname), level="debug", interpret=False)
-
-  if modulepath is not None:
-    try:
-        m = importlib.import_module(modulepath)
-    except ModuleNotFoundError:
-        print("no module")
-    else:
-        print("m=%r" % (m))
-        func = getattr(m, functionname)
-        print("func=%r" % (func))
-        if callable(func) is True:
-            # print("yes!")
-            func(args, command)
-  else:
-    ttyio.echo("processcallback.100: functionname=%r" % (functionname), level="debug")
-    func = eval(functionname)
-    if callable(func) is True:
-      print("callable")
-      func(args, command)
-    else:
-      print("not callable")
-  
-  print("done.")
-  return
-    
 def updatetopbar(args, area):
     currentmember = bbsengine.getcurrentmember(args)
     terminalwidth = bbsengine.getterminalwidth()
@@ -70,85 +36,37 @@ def verifyMemberNotFound(args, name):
         return True
     return False
 
-def member(args, command):
-    def edit():
-      updatetopbar(args, "edit member")
-      name = ttyio.inputstring("name: ", "", verify=verifyMemberFound, noneok=True, multiple=False, args=args)
-      if name is None:
-        ttyio.echo("aborted.")
-        return
-      ttyio.echo("begin editing member.")
-      dbh = databaseconnect(args)
-      member = bbsengine.getmemberbyname(dbh, args, name)
-      ttyio.echo("member=%r" % (member), interpret=False)
-      return
+def verifyMemberFound(args, name):
+    ttyio.echo("args=%r" % (args), level="debug")
+    dbh = bbsengine.databaseconnect(args)
+    cur = dbh.cursor()
+    sql = "select 1 from engine.member where name=%s"
+    dat = (name,)
+    cur.execute(sql, dat)
+    if cur.rowcount == 0:
+        return False
+    return True
 
-    def new():
-      updatetopbar(args, "new member")
-      name = ttyio.inputstring("name: ", "", verify=verifyMemberNotFound, noneok=False, multiple=False, args=args)
-      email = ttyio.inputstring("email: ", "", noneok=False, multiple=False, args=args)
-      plaintextpassword = ttyio.inputstring("password: ", "", noneok=False, multiple=False, args=args)
-      loginid = ttyio.inputstring("loginid: ", "", noneok=True, multiple=False, args=args)
-      shell = ttyio.inputstring("shell: ", "", noneok=True, multiple=False, args=args)
-      ch = ttyio.inputboolean("sysop?: ", "N", "YN")
-      sysop = True if ch == "Y" else False
-      credits = ttyio.inputinteger("credits: ", "42", noneok=True, multiple=False, args=args)
-
-      if ttyio.inputboolean("save?: ", "", "YN") is False:
-        ttyio.echo("{f6}member not added.")
-        return
-
-      member = {}
-      member["name"] = name
-      member["email"] = email
-      member["datecreated"] = "now()"
-      member["dateapproved"] = "now()"
-      dbh = bbsengine.databaseconnect(args)
-      memberid = bbsengine.insert(dbh, "engine.__member", member)
-      ttyio.echo("memberid=%r" % (memberid), level="debug")
-      attributes = {}
-      attributes["loginid"] = loginid
-      attributes["shell"] = shell
-      bbsengine.setmemberattributes(dbh, memberid, attributes, reset=True)
-      bbsengine.setmemberpassword(dbh, memberid, plaintextpassword)
-      bbsengine.setflag(dbh, memberid, "SYSOP", sysop)
-      bbsengine.setmembercredits(dbh, memberid, credits)
-      dbh.commit()
-      ttyio.echo("member added.")
-
-    done = False
-    while not done:
-      updatetopbar(args, "member")
-
-      ttyio.echo("{/all}")
-
-      ttyio.echo("[N]ew")
-      ttyio.echo("[E]dit")
-#      ttyio.echo("[D]elete")
-      ttyio.echo("{f6}[Q]uit")
-      ch = ttyio.inputchar("member [NEQ]: ", "NEQ", "Q")
-      if ch == "Q":
-        ttyio.echo("Q -- Quit")
-        done = True
-      elif ch == "N":
-        ttyio.echo("N -- New{f6}")
-        new()
-      elif ch == "E":
-        ttyio.echo("E -- Edit{f6}")
-        edit()
+def shellout(args, **kwargs):
+  if "command" in kwargs and "shell" in kwargs["command"]["shell"]:
+    shell = kwargs["command"]["shell"]
+    updatetopbar(args, shell)
+    return os.system(shell)
+  else:
+    ttyio.echo("command does not have a 'shell' key. failed.", level="error")
     return
 
+
 commands = (
-    {"command": "teos",     "callback": "shellout", "shell": "teos", "help": "sig view"},
-    {"command": "socrates", "callback": "shellout", "shell": "socrates", "help": "post view"},
-    {"command": "ogun",     "callback": "shellout", "shell": "ogun", "help": "link view"},
-    {"command": "glossary", "callback": "shellout", "shell": "aolbonics", "help": "glossary"},
-    {"command": "empyre",   "callback": "shellout", "shell": "empyre", "help":"run the game empyre"},
-    {"command": "achilles", "callback": "shellout", "shell": "achilles", "help": "achilles: a study of msg"},
+    {"command": "teos",     "callback": shellout, "shell": "teos", "help": "sig view"},
+    {"command": "socrates", "callback": shellout, "shell": "socrates", "help": "post view"},
+    {"command": "ogun",     "callback": shellout, "shell": "ogun", "help": "link view"},
+    {"command": "glossary", "callback": shellout, "shell": "aolbonics", "help": "glossary"},
+    {"command": "empyre",   "callback": shellout, "shell": "empyre", "help":"run the game empyre"},
+    {"command": "achilles", "callback": shellout, "shell": "achilles", "help": "achilles: a study of msg"},
     {"command": "post-add", "callback": "socrates.addpost", "help":"add new post"},
-    {"command": "member",   "callback": "member", "help":"manage members"},
-    {"command": "sig",      "callback": "sig", "help":"manage sigs"},
-    {"command": "help",     "callback": "help"},
+    {"command": "engine",   "callback": shellout, "help":"manage engine (members, sessions, etc)"},
+    {"command": "help",     "callback": help},
 )
 
 # @since 20201125
@@ -165,10 +83,6 @@ class shellCommandCompleter(object):
     results = [x for x in vocab if x.startswith(text)] + [None]
     return results[state]
 
-def shellout(args, command):
-  shell = command["shell"]
-  updatetopbar(args, shell)
-  return os.system(shell)
 
 def help():
   maxlen = 0
@@ -264,8 +178,7 @@ def main():
       callback = c["callback"]
       if argv[0] == command:
         found = True
-        bbsengine.runcallback(args, callback)
-        # processcommand(args, c)
+        bbsengine.runcallback(args, callback, command=command)
         break
     if found is False:
       ttyio.echo("command not found", level="error")
