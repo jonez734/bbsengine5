@@ -13,12 +13,9 @@ from syslog import *
 
 from argparse import Namespace
 
-try:
-  import ttyio4 as ttyio
-except:
-  usettyio = False
-else:
-  usettyio = True
+import ttyio4 as ttyio
+
+import importlib
 
 try:
   import getdate
@@ -537,7 +534,7 @@ def checkflag(args:object, flag:str, memberid:int=None):
     return None
   return res["value"]
 
-def logentry(message, output=False, level=None, priority=LOG_INFO, stripcommands=False, datestamp=True):
+def logentry(message, output=True, level=None, priority=LOG_INFO, stripcommands=False, datestamp=True):
   if level is not None:
     if level == "debug":
       message = "{autoblue}** debug ** "+message+"{/autoblue}"
@@ -550,9 +547,7 @@ def logentry(message, output=False, level=None, priority=LOG_INFO, stripcommands
   syslog(priority, message)
 
   if output is True:
-    ttyio.echo(message, stripcommands=stripcommands, datestamp=datestamp)
-  else:
-    print (message)
+    ttyio.echo(message, stripcommands=stripcommands, datestamp=datestamp, interpret=False)
 
   return
 
@@ -708,13 +703,10 @@ def handlemenu(args, items, oldrecord, currecord, prompt="option", defaulthotkey
       ttyio.echo(buf)
   
   if "q" in hotkeys:
-      print
-      ttyio.echo("[{autocyan}Q{/autocyan}]uit")
+      ttyio.echo("{f6}[{autocyan}Q{/autocyan}]uit")
 
   if oldrecord != currecord:
-      print
-      ttyio.echo("{autocyan}** NEEDS SAVE **{/autocyan}")
-  print
+      ttyio.echo("{f6}{autocyan}** NEEDS SAVE **{/autocyan}{f6}")
   ch = ttyio.accept(prompt, hotkeystr, defaulthotkey).lower()
   if ch == "":
       return None
@@ -781,7 +773,7 @@ def getcurrentmember(args:object, fields="*") -> dict:
 # @since 20190924
 # @since 20210203
 def getmemberbyname(dbh:object, args:object, name:str, fields="*") -> dict:
-  sql = "select %s from engine.member where username=%%s" % (fields)
+  sql = "select %s from engine.member where name=%%s" % (fields)
   dat = (name,)
   cur = dbh.cursor()
   cur.execute(sql, dat)
@@ -966,3 +958,49 @@ def verifyFileExistsReadable(args, filename):
 
 def inputfilename(args, prompt, default, verify=verifyFileExistsReadable, **kw):
   return ttyio.inputstring(prompt, default, verify=verify, **kw)
+
+def runcallback(args:object, callback:str, **kwargs):
+  if callable(callback) is True:
+    ttyio.echo("runcallback.420: callable", level="debug")
+    return callback(args, **kwargs)
+
+  s = callback.split(".")
+  if len(s) > 1:
+    modulepath = ".".join(s[:-1])
+    functionname = s[len(s)-1:][0]
+  else:
+    modulepath = None
+    functionname = s[0]
+
+  ttyio.echo("runcallback.160: modulepath=%r functionname=%r" % (modulepath, functionname), level="debug", interpret=False)
+
+  rc = None
+  if modulepath is not None:
+    try:
+        m = importlib.import_module(modulepath)
+    except ModuleNotFoundError:
+        ttyio.echo("runcallback.180: %s module not found" % (modulepath), level="error")
+    else:
+        ttyio.echo("runcallback.200: m=%r" % (m), level="debug")
+        func = getattr(m, functionname)
+        ttyio.echo("runcallback.220: func=%r" % (func), level="debug")
+        if callable(func) is True:
+            rc = func(args, **kwargs)
+  else:
+    ttyio.echo("runcallback.240: functionname=%r" % (functionname), level="debug")
+    try:
+      func = eval(functionname)
+      ttyio.echo("runcallback.320: func=%r" % (func))
+    except NameError:
+      ttyio.echo("runcallback.320: %r not found." % (functionname), level="error")
+      return False
+
+    if callable(func) is True:
+      ttyio.echo("runcallback.260: callable", level="debug")
+      rc = func(args, **kwargs)
+    else:
+      ttyio.echo("runcallback.280: not callable", level="debug")
+      rc = False
+
+  ttyio.echo("runcallback.300: callback completed", level="debug")
+  return rc
