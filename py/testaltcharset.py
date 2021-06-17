@@ -6,4 +6,4 @@ import bbsengine5 as bbsengine
 #ttyio.echo("{lightred}{acs:ulcorner}{acs:hline:10}{acs:urcorner}{/all}this is a test")
 #ttyio.echo("{acs:ulcorner}"+bbsengine.hr()+"{acs:urcorner}")
 
-bbsengine.title("lorem ipsum lorem ipsum")
+bbsengine.title("lorem ipsum lorem ipsum", hrcolor="{darkgray}", titlecolor="{bggray}{white}")
