@@ -3,9 +3,31 @@ import argparse
 import ttyio4 as ttyio
 import bbsengine5 as bbsengine
 
+def verifyMemberNotFound(args, name):
+    ttyio.echo("args=%r" % (args))
+    dbh = bbsengine.databaseconnect(args)
+    cur = dbh.cursor()
+    sql = "select 1 from engine.member where name=%s"
+    dat = (name,)
+    cur.execute(sql, dat)
+    if cur.rowcount == 0:
+        return True
+    return False
+
+def verifyMemberFound(args, name):
+    ttyio.echo("args=%r" % (args), level="debug")
+    dbh = bbsengine.databaseconnect(args)
+    cur = dbh.cursor()
+    sql = "select 1 from engine.member where name=%s"
+    dat = (name,)
+    cur.execute(sql, dat)
+    if cur.rowcount == 0:
+        return False
+    return True
+
 def member(args, **kwargs):
     def edit():
-      updatetopbar(args, "edit member")
+      bbsengine.updatetopbar("edit member")
       name = ttyio.inputstring("name: ", "", verify=verifyMemberFound, noneok=True, multiple=False, args=args)
       if name is None:
         ttyio.echo("aborted.")
@@ -17,7 +39,7 @@ def member(args, **kwargs):
       return
 
     def new():
-      updatetopbar(args, "new member")
+      bbsengine.updatetopbar("new member")
       name = ttyio.inputstring("name: ", "", verify=verifyMemberNotFound, noneok=False, multiple=False, args=args)
       email = ttyio.inputstring("email: ", "", noneok=False, multiple=False, args=args)
       plaintextpassword = ttyio.inputstring("password: ", "", noneok=False, multiple=False, args=args)
@@ -50,7 +72,7 @@ def member(args, **kwargs):
 
     done = False
     while not done:
-      updatetopbar(args, "member")
+      bbsengine.updatetopbar("member")
 
       ttyio.echo("{/all}")
 
@@ -71,7 +93,16 @@ def member(args, **kwargs):
     return
 
 def main():
-  member()
+  parser = argparse.ArgumentParser("empyre")
+
+  parser.add_argument("--verbose", action="store_true", dest="verbose")
+  parser.add_argument("--debug", action="store_true", dest="debug")
+
+  defaults = {"databasename": "zoidweb5", "databasehost":"localhost", "databaseuser": None, "databaseport":5432, "databasepassword":None}
+  bbsengine.buildargdatabasegroup(parser, defaults)
+
+  args = parser.parse_args()
+  member(args)
 
 if __name__ == "__main__":
   main()
