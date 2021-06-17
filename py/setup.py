@@ -12,8 +12,8 @@ setup(
   version=v,
   author="zoid technologies",
   author_email="%s@projects.zoidtechnologies.com" % (projectname),
-  py_modules=["bbsengine5", "bbs"],
-  scripts=["bbs"],
+  py_modules=["bbsengine5", "bbs", "engine"],
+  scripts=["bbs", "engine"],
   requires=["ttyio4"],
   url="http://bbsengine.org/",
   classifiers=[
