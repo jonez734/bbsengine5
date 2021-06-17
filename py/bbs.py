@@ -25,36 +25,18 @@ def updatetopbar(args, area):
     bbsengine.updatetopbar(buf)
     return
 
-def verifyMemberNotFound(args, name):
-    ttyio.echo("args=%r" % (args))
-    dbh = bbsengine.databaseconnect(args)
-    cur = dbh.cursor()
-    sql = "select 1 from engine.member where name=%s"
-    dat = (name,)
-    cur.execute(sql, dat)
-    if cur.rowcount == 0:
-        return True
-    return False
-
-def verifyMemberFound(args, name):
-    ttyio.echo("args=%r" % (args), level="debug")
-    dbh = bbsengine.databaseconnect(args)
-    cur = dbh.cursor()
-    sql = "select 1 from engine.member where name=%s"
-    dat = (name,)
-    cur.execute(sql, dat)
-    if cur.rowcount == 0:
-        return False
-    return True
 
 def shellout(args, **kwargs):
-  if "command" in kwargs and "shell" in kwargs["command"]["shell"]:
-    shell = kwargs["command"]["shell"]
-    updatetopbar(args, shell)
-    return os.system(shell)
-  else:
-    ttyio.echo("command does not have a 'shell' key. failed.", level="error")
-    return
+  if "command" in kwargs:
+    ttyio.echo("shellout.100: command=%r" % (kwargs["command"]), level="debug")
+    if "shell" in kwargs["command"]:
+      shell = kwargs["command"]["shell"]
+      ttyio.echo("shellout.120: shell=%r" % (shell), level="debug")
+      updatetopbar(args, shell)
+      return os.system(shell)
+    else:
+      ttyio.echo("command does not have a 'shell' key. failed.", level="error")
+      return
 
 
 commands = (
@@ -65,7 +47,7 @@ commands = (
     {"command": "empyre",   "callback": shellout, "shell": "empyre", "help":"run the game empyre"},
     {"command": "achilles", "callback": shellout, "shell": "achilles", "help": "achilles: a study of msg"},
     {"command": "post-add", "callback": "socrates.addpost", "help":"add new post"},
-    {"command": "engine",   "callback": shellout, "help":"manage engine (members, sessions, etc)"},
+    {"command": "engine",   "callback": shellout, "shell": "engine", "help":"manage engine (members, sessions, etc)"},
     {"command": "help",     "callback": help},
 )
 
@@ -178,7 +160,7 @@ def main():
       callback = c["callback"]
       if argv[0] == command:
         found = True
-        bbsengine.runcallback(args, callback, command=command)
+        bbsengine.runcallback(args, callback, command=c)
         break
     if found is False:
       ttyio.echo("command not found", level="error")
