@@ -1,10 +1,13 @@
 import importlib
+import argparse
 
 def addpost(args:object=None):
     print("inside addpost!")
     return
 
 def main():
+    args = argparse.Namespace()
+
     buf = "socrates.addpost"
 
     s = buf.split(".")
@@ -29,7 +32,7 @@ def main():
             print("func=%r" % (func))
             if callable(func) is True:
                 print("yes!")
-                func()
+                func(args)
     else:
         if callable(functionname) is True:
             print("callable")
