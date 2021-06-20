@@ -35,7 +35,7 @@ def member(args, **kwargs):
       ttyio.echo("begin editing member.")
       dbh = bbsengine.databaseconnect(args)
       member = bbsengine.getmemberbyname(dbh, args, name)
-      ttyio.echo("member=%r" % (member), interpret=False)
+      ttyio.echo("member=%r" % (member), interpret=False, level="debug")
       return
 
     def new():
@@ -48,7 +48,7 @@ def member(args, **kwargs):
       sysop = ttyio.inputboolean("sysop?: ", "N", "YN")
       credits = ttyio.inputinteger("credits: ", "42", noneok=True, multiple=False, args=args)
 
-      if ttyio.inputboolean("save?: ", "", "YN") is False:
+      if ttyio.inputboolean("add?: ", "", "YN") is False:
         ttyio.echo("{f6}member not added.")
         return
 
@@ -93,7 +93,7 @@ def member(args, **kwargs):
     return
 
 def main():
-  parser = argparse.ArgumentParser("empyre")
+  parser = argparse.ArgumentParser("bbsengine5")
 
   parser.add_argument("--verbose", action="store_true", dest="verbose")
   parser.add_argument("--debug", action="store_true", dest="debug")
