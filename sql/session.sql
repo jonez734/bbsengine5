@@ -34,3 +34,4 @@ create view engine.session as
 create unique index idx_session_sessionid_unique on engine.__session(id);
 
 grant select on engine.session to apache;
+grant all on engine.__session to apache;
