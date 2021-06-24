@@ -1004,3 +1004,6 @@ def runcallback(args:object, callback:str, **kwargs):
 
   ttyio.echo("runcallback.300: callback completed", level="debug")
   return rc
+
+def inputpassword(prompt:str="password: ", charmask="X"):
+  return ttyio.inputstring(prompt)
