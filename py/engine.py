@@ -25,6 +25,112 @@ def verifyMemberFound(args, name):
         return False
     return True
 
+def email(args, **kwargs):
+  def _edit(args, **kwargs):
+    if "prompt" in kwargs:
+      prompt = kwargs["prompt"]
+    else:
+      prompt = "email._edit"
+
+    attributes = {}
+    if "attributes" in kwargs:
+      attributes = kwargs["attributes"]
+    done = False
+    while not done:
+      if "address" in attributes:
+        address = attributes["address"]
+        if address is not None:
+          ttyio.echo("[A]ddress: %s" % (address))
+      else:
+        ttyio.echo("[A]ddress")
+      ttyio.echo("[P]assword")
+      if "status" in attributes:
+        status = attributes["status"]
+        ttyio.echo("[S]tatus: %s" % (status), end="")
+        if status == "suspend" and "suspenduntil" in attributes:
+          suspenduntil = attributes["suspenduntil"]
+          ttyio.echo(" until: %s" % (bbsengine.datestamp(suspenduntil)))
+        else:
+          ttyio.echo()
+      else:
+          ttyio.echo("[S]tatus")
+      ttyio.echo("[H]ost")
+      ttyio.echo("{f6}[Q]uit")
+      ch = ttyio.inputchar("%s [AEDSQ]: " % (prompt), "ASMHQ", "Q")
+      if ch == "Q":
+        ttyio.echo("quit")
+        done = True
+        break
+      elif ch == "P":
+        p = bbsengine.inputpassword("password: ", mask="X")
+        attributes["password"] = p
+      elif ch == "A":
+        if "address" in attributes:
+          address = attributes["address"]
+        else:
+          address = None
+        attributes["address"] = ttyio.inputstring("address: ", address, noneok=True)
+      elif ch == "H":
+        if "host" in attributes:
+          default = attributes["host"]
+        else:
+          default = "merlin.zoidtechnologies.com"
+        host = ttyio.inputstring("host: ", default)
+        attributes["host"] = host
+
+      elif ch == "S":
+        ch = ttyio.inputchar("Status [S]uspend [A]ctive: ", "SA", noneok=True)
+        if ch == "S":
+          suspenduntil = bbsengine.inputdate("Suspend until: ")
+          attributes["suspenduntil"] = suspenduntil
+          attributes["status"] = "suspend"
+        elif ch == "A":
+          ttyio.echo("Active")
+          attributes["status"] = "active"
+          if "suspenduntil" in attributes:
+            del attributes["suspenduntil"]
+
+    ttyio.echo("_editemail.100: attributes=%r" % (attributes), interpret=False)
+    return
+  def delete():
+    pass
+  def edit():
+    pass
+  def add():
+    newattributes = _editemail(args, attributes={}, prompt="email.add")
+    ttyio.echo("email.add.100: newattributes=%r" % (newattributes), interpret=False)
+    return
+  def summary():
+    pass
+
+  done = False
+  while not done:
+    bbsengine.title("email")
+    ttyio.echo("[A]dd")
+    ttyio.echo("[E]dit")
+    ttyio.echo("[D]elete")
+    ttyio.echo("[S]ummary")
+    ttyio.echo("{f6}[Q]uit")
+    ch = ttyio.inputchar("email [AEDSQ]: ", "AEDSQ", "Q")
+    if ch == "Q":
+      ttyio.echo("Quit")
+      done = True
+      break
+    elif ch == "A":
+      ttyio.echo("Add")
+      add()
+    elif ch == "E":
+      ttyio.echo("Edit")
+      edit()
+    elif ch == "D":
+      ttyio.echo("Delete")
+      delete()
+    elif ch == "L":
+      ttyio.echo("List")
+      summary()
+
+  return
+
 def member(args, **kwargs):
     def edit():
       bbsengine.updatetopbar("edit member")
@@ -85,10 +191,10 @@ def member(args, **kwargs):
         ttyio.echo("Q -- Quit")
         done = True
       elif ch == "N":
-        ttyio.echo("N -- New{f6}")
+        ttyio.echo("N -- New")
         new()
       elif ch == "E":
-        ttyio.echo("E -- Edit{f6}")
+        ttyio.echo("E -- Edit")
         edit()
     return
 
@@ -102,7 +208,25 @@ def main():
   bbsengine.buildargdatabasegroup(parser, defaults)
 
   args = parser.parse_args()
-  member(args)
+  done = False
+  while not done:
+    bbsengine.title("engine")
+    ttyio.echo("[M]embers")
+    ttyio.echo("[E]mail")
+    ttyio.echo("{f6}[Q]uit")
+    ch = ttyio.inputchar("engine: ", "MEQ", "Q")
+    if ch == "M":
+      ttyio.echo("Members")
+      member(args)
+      continue
+    elif ch == "E":
+      ttyio.echo("E-Mail")
+      email(args)
+      continue
+    else:
+      ttyio.echo("Quit")
+      done = True
+      break
 
 if __name__ == "__main__":
   main()
