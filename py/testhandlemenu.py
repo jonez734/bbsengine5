@@ -92,11 +92,20 @@ def main():
       ttyio.echo("res=%r" % (res))
       return res
     elif ch == "KEY_HOME":
-      ttyio.echo("{cursorup:%d}{cursorright:4}" % (pos+1))
-      pos = 0
+      if pos > 0:
+        ttyio.echo("{cursorup:%d}" % (pos-1), end="", flush=True)
+        pos = 0
+    elif ch == "KEY_END":
+      ttyio.echo("{cursordown:%d}" % (len(menu)-pos), end="", flush=True)
+      pos = len(menu)+1
+    elif ch == "KEY_LEFT" or ch == "KEY_RIGHT":
+      ttyio.echo("{bell}", flush=True, end="")
     else:
       ch = ch.upper()
-      i = ord(ch.upper()) - ord("A")
+      i = ord(ch) - ord("A")
+      if i > len(menu):
+        ttyio.echo("Q: Quit")
+        break
       ttyio.echo("i=%d chr=%s" % (i, chr(i)))
       ttyio.echo("%s: %s" % (ch, menu[i]["label"]))
       bbsengine.runcallback(None, menu[i]["callback"])
