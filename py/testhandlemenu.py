@@ -89,7 +89,11 @@ def main():
         pos = len(menu)
     elif ch == "\n":
       res = ord('A') + pos
-      break
+      ttyio.echo("res=%r" % (res))
+      return res
+    elif ch == "KEY_HOME":
+      ttyio.echo("{cursorup:%d}{cursorright:4}" % (pos+1))
+      pos = 0
     else:
       ch = ch.upper()
       i = ord(ch.upper()) - ord("A")
@@ -97,7 +101,7 @@ def main():
       ttyio.echo("%s: %s" % (ch, menu[i]["label"]))
       bbsengine.runcallback(None, menu[i]["callback"])
       break
-  ttyio.echo("res=%r" % (chr(res)))
+#  ttyio.echo("res=%r" % (chr(res)))
   return
 
 if __name__ == "__main__":
