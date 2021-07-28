@@ -1,5 +1,6 @@
 import bbsengine5 as bbsengine
 import ttyio4 as ttyio
 
-for x in range(0, 20):
-    ttyio.echo("%d: %d" % (x, bbsengine.diceroll(10)))
+ttyio.echo("%r" % (bbsengine.diceroll(10, 10, mode="median")))
+# for x in range(0, 20):
+#    ttyio.echo("%d: %d" % (x, bbsengine.diceroll(10)))
