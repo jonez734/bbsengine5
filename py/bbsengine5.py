@@ -1,5 +1,5 @@
 #
-# (C) 2008-2021 Zoid Technologies. All Rights Reserved.
+# Copyright (C) 2008-2021 zoidtechnologies.com. All Rights Reserved.
 #
 
 import re, os, sys, pwd, time, random
@@ -16,6 +16,8 @@ from argparse import Namespace
 import ttyio4 as ttyio
 
 import importlib
+
+from typing import Any, List, NamedTuple
 
 try:
   import getdate
@@ -374,20 +376,21 @@ def getsignamefromid(dbh, id):
     return res["name"]
   return None
 
-def update(dbh, table, id, dict, primarykey="id"):
-  if primarykey in dict:
-    del dict[primarykey]
+def update(dbh, table, key, values:dict, primarykey="id"):
+  ttyio.echo("bbsengine5.update.100: values=%r" % (values), interpret=False)
+  if primarykey in values:
+    del values[primarykey]
 
   sql = "update %s set " % (table)
   params = []
   dat = []
-  for k, v in dict.items():
+  for k, v in values.items():
     params.append("%s=%%s" % (k),)
     dat.append(v)
 
   sql += ", ".join(params)
   sql += " where %s=%%s" % (primarykey)
-  dat.append(id)
+  dat.append(key)
 
   cur = dbh.cursor()
   ret = cur.execute(sql, dat)
@@ -660,64 +663,123 @@ def explodesigpaths(paths):
 def implodesigpaths(siglist):
   pass
 
-def handlemenu(args, items, oldrecord, currecord, prompt="option", defaulthotkey=""):
-  hotkeys = {}
+def handlemenu(prompt="menu:", menu=[], default="A"):
+  ttyio.echo("%s{decsc}{cha}{cursorright:4}{cursorup:%d}A{cursorleft}" % (prompt, 4+len(menu)), end="", flush=True)
 
-  hotkeystr = ""
-
-  for item in items:
-      label = item["label"].lower()
-      hotkey = item["hotkey"].lower() if "hotkey" in item else None
-      format = item["format"] if "format" in item else "%s"
-      
-      hotkeys[hotkey] = item # ["longlabel"] if item.has_key("longlabel") else None
-      if hotkey is not None:
-          hotkeystr += hotkey
-
-      if hotkey == "q":
-          continue
-      
-      if hotkey is not None and hotkey in label:
-          label = label.replace(hotkey.lower(), "[{autocyan}%s{/autocyan}]" % (hotkey.upper()), 1)
+  res = None
+  pos = 0
+  done = False
+  while not done:
+    ch = ttyio.getch(noneok=False)
+    if ch is None:
+      time.sleep(0.125)
+      continue
+    ch = ch.upper()
+    oldpos = pos
+    if ch == "Q":
+      ttyio.echo("{decrc}Q: Quit")
+      break
+    elif ch == "\004":
+      raise EOFError
+    elif ch == "KEY_DOWN":
+      if pos < len(menu):
+        ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+        pos += 1
       else:
-          label = "[{autocyan}%s{/autocyan}] %s" % (hotkey, label)
+        ttyio.echo("{cursorup:%d}" % (pos), end="", flush=True)
+        pos = 0
+    elif ch == "KEY_UP":
+      if pos > 0:
+        ttyio.echo("{cursorup}", end="", flush=True)
+        pos -= 1
+      else:
+        ttyio.echo("{cursordown:%d}" % (len(menu)), end="", flush=True)
+        pos = len(menu)
+    elif ch == "\n":
+      # ttyio.echo("pos=%d len=%d" % (pos, len(menu)))
+      return ("select", pos)
+    elif ch == "KEY_HOME":
+      if pos > 0:
+        ttyio.echo("{cursorup:%d}" % (pos-1), end="", flush=True)
+        pos = 0
+    elif ch == "KEY_END":
+      ttyio.echo("{cursordown:%d}" % (len(menu)-pos), end="", flush=True)
+      pos = len(menu)+1
+    elif ch == "KEY_LEFT" or ch == "KEY_RIGHT":
+      ttyio.echo("{bell}", flush=True, end="")
+    elif ch == "Q":
+      return ("quit", None)
+    elif ch == "?" or ch == "KEY_F1":
+      return ("help", pos)
+    else:
+      if len(ch) > 1:
+        ttyio.echo("{bell}", end="", flush=True)
+        continue
+      i = ord(ch) - ord('A')
+      if i > len(menu)-1:
+        ttyio.echo("{bell}", end="", flush=True)
+        continue
+      return ("select", i)
+  return None
 
-      if "key" in item:
-          key = item["key"]
-          if key in oldrecord and key in currentrecord and oldrecord[key] != currecord[key]:
-              curval = format % currecord[key]
-              oldval = format % oldrecord[key]
-              buf = "%s: %s (was %s)" % (label, curval, oldval)
-          else:
-              curval = format % currecord[key]
-              buf = "%s: %s" % (label, curval)
-      elif "changed" in item:
-        if item["changed"] is True:
-          buf = "%s (changed)" % (label)
-      else:            
-          buf = label
-      
-      required = item["required"] if "required" in item else False
-      if required is True:
-        buf = "{autored}*{/autored} "+buf
-      ttyio.echo(buf)
-  
-  if "q" in hotkeys:
-      ttyio.echo("{f6}[{autocyan}Q{/autocyan}]uit")
-
-  if oldrecord != currecord:
-      ttyio.echo("{f6}{autocyan}** NEEDS SAVE **{/autocyan}{f6}")
-  ch = ttyio.accept(prompt, hotkeystr, defaulthotkey).lower()
-  if ch == "":
-      return None
-
-  longlabel = hotkeys[ch]["longlabel"] if "longlabel" in hotkeys[ch] else None
-  if longlabel is not None:
-      ttyio.echo("{autocyan}%s{/autocyan} -- %s" % (ch.upper(), longlabel))
-  else:
-      ttyio.echo("{autocyan}%s{/autocyan}" % (ch.upper()))
-  res = hotkeys[ch] if ch in hotkeys else None
-  return res
+#def handlemenu(args, items, oldrecord, currecord, prompt="option", defaulthotkey=""):
+#  hotkeys = {}
+#
+#  hotkeystr = ""
+#
+#  for item in items:
+#      label = item["label"].lower()
+#      hotkey = item["hotkey"].lower() if "hotkey" in item else None
+#      format = item["format"] if "format" in item else "%s"
+#
+#      hotkeys[hotkey] = item # ["longlabel"] if item.has_key("longlabel") else None
+#      if hotkey is not None:
+#          hotkeystr += hotkey
+#
+#      if hotkey == "q":
+#          continue
+#
+#      if hotkey is not None and hotkey in label:
+#          label = label.replace(hotkey.lower(), "[{autocyan}%s{/autocyan}]" % (hotkey.upper()), 1)
+#      else:
+#          label = "[{autocyan}%s{/autocyan}] %s" % (hotkey, label)
+#
+#      if "key" in item:
+#          key = item["key"]
+#          if key in oldrecord and key in currentrecord and oldrecord[key] != currecord[key]:
+#              curval = format % currecord[key]
+#              oldval = format % oldrecord[key]
+#              buf = "%s: %s (was %s)" % (label, curval, oldval)
+#          else:
+#              curval = format % currecord[key]
+#              buf = "%s: %s" % (label, curval)
+#      elif "changed" in item:
+#        if item["changed"] is True:
+#          buf = "%s (changed)" % (label)
+#      else:
+#          buf = label
+#
+#      required = item["required"] if "required" in item else False
+#      if required is True:
+#        buf = "{autored}*{/autored} "+buf
+#      ttyio.echo(buf)
+#
+#  if "q" in hotkeys:
+#      ttyio.echo("{f6}[{autocyan}Q{/autocyan}]uit")
+#
+#  if oldrecord != currecord:
+#      ttyio.echo("{f6}{autocyan}** NEEDS SAVE **{/autocyan}{f6}")
+#  ch = ttyio.accept(prompt, hotkeystr, defaulthotkey).lower()
+#  if ch == "":
+#      return None
+#
+#  longlabel = hotkeys[ch]["longlabel"] if "longlabel" in hotkeys[ch] else None
+#  if longlabel is not None:
+#      ttyio.echo("{autocyan}%s{/autocyan} -- %s" % (ch.upper(), longlabel))
+#  else:
+#      ttyio.echo("{autocyan}%s{/autocyan}" % (ch.upper()))
+#  res = hotkeys[ch] if ch in hotkeys else None
+#  return res
 
 # @since 20200819
 def getmembercredits(args:object, memberid:int=None) -> int:
@@ -868,8 +930,34 @@ def buildargdatabasegroup(parser:object, defaults:dict={}, label="database"):
 
 # @since 20201229
 # mode = single, average, mean, list, ....?
-def diceroll(sides:int=6, count:int=1, mode:str=None):
-  return random.randint(1, sides)
+def diceroll(sides:int=6, count:int=1, mode:str="single"):
+  if mode == "single":
+    return random.randint(1, sides)
+
+  result = []
+  for x in range(1, count+1):
+    result.append(random.randint(1, sides))
+
+  if mode == "list":
+    return result
+  elif mode == "average":
+    avg = 0.0
+    total = 0
+    for x in result:
+      total += x
+    return total/len(result)
+  elif mode == "median":
+    median = 0.0
+    # ttyio.echo("result=%r" % (result))
+    result.sort()
+    # ttyio.echo("result=%r" % (result))
+    middle = int(len(result)//2)
+    if len(result) % 2 == 1:
+      return result[middle]
+    else:
+      return int((result[middle-1] + result[middle]) / 2.0)
+  else:
+    return None
 
 # @since 20210222
 def initscreen(topmargin=0, bottommargin=0):
@@ -959,9 +1047,9 @@ def verifyFileExistsReadable(args, filename):
 def inputfilename(args, prompt, default, verify=verifyFileExistsReadable, **kw):
   return ttyio.inputstring(prompt, default, verify=verify, **kw)
 
-def runcallback(args:object, callback:str, **kwargs):
+def runcallback(args:object, callback, **kwargs):
+  # ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), interpret=False)
   if callable(callback) is True:
-    ttyio.echo("runcallback.420: callable", level="debug")
     return callback(args, **kwargs)
 
   s = callback.split(".")
@@ -1005,5 +1093,49 @@ def runcallback(args:object, callback:str, **kwargs):
   ttyio.echo("runcallback.300: callback completed", level="debug")
   return rc
 
-def inputpassword(prompt:str="password: ", charmask="X"):
-  return ttyio.inputstring(prompt)
+def inputpassword(prompt:str="password: ", mask="X"):
+  buf = ""
+  done = False
+  while not done:
+    ch = ttyio.getch()
+#    ttyio.echo("ch=%r" % (ch))
+    if ch == "\n":
+      done = True
+      break
+    if len(ch) == 1:
+      buf += ch
+      ttyio.echo(mask, end="", flush=True)
+  # ttyio.echo(buf)
+  return buf
+
+# @see https://stackoverflow.com/a/53981846
+# @since 20210709 moved from ttyio4
+def oxfordcomma(seq: List[Any], sepcolor:str="", itemcolor:str="") -> str:
+    """Return a grammatically correct human readable string (with an Oxford comma)."""
+    seq = [str(s) for s in seq]
+
+    if len(seq) < 3:
+      buf = "%s and %s" % (sepcolor, itemcolor)
+      return itemcolor+buf.join(seq) # " and ".join(seq)
+
+    buf = "%s, %s" % (sepcolor, itemcolor)
+    return itemcolor+buf.join(seq[:-1]) + '%s, and %s' % (sepcolor, itemcolor) + seq[-1]
+readablelist = oxfordcomma
+
+# @see https://gist.github.com/sirpengi/5045885 2013-feb-27 in oftcphp sirpengi
+# @since 20140529
+# @since 20200719
+def collapselist(lst):
+    def chunk(lst):
+        ret = [lst[0],]
+        for i in lst[1:]:
+            if ord(i) == ord(ret[-1]) + 1:
+                pass
+            else:
+                yield ret
+                ret = []
+            ret.append(i)
+        yield ret
+    chunked = chunk(lst)
+    ranges = ((min(l), max(l)) for l in chunked)
+    return ", ".join("{0}-{1}".format(*l) if l[0] != l[1] else l[0] for l in ranges)
