@@ -1,4 +1,5 @@
 import argparse
+import json
 
 import ttyio4 as ttyio
 import bbsengine5 as bbsengine
@@ -132,6 +133,15 @@ def email(args, **kwargs):
   return
 
 def member(args, **kwargs):
+    def buildrecord(row):
+      rec = {}
+      for k in ("attributes", "id", "name", "email", "password", "datecreated", "createdbyid", "dateupdated", "updatedbyid", "approvedbyid", "dateapproved", "lastlogin", "lastloginfrom"): # , "datecreatedepoch", "lastloginepoch", "dateapprovedepoch", "dateupdatedepoch"): # attributes, datecreated, createdbyid
+        if k == "attributes":
+          rec[k] = json.dumps(row[k])
+        else:
+          rec[k] = row[k]
+      return rec
+
     def edit():
       bbsengine.updatetopbar("edit member")
       name = ttyio.inputstring("name: ", "", verify=verifyMemberFound, noneok=True, multiple=False, args=args)
@@ -141,7 +151,19 @@ def member(args, **kwargs):
       ttyio.echo("begin editing member.")
       dbh = bbsengine.databaseconnect(args)
       member = bbsengine.getmemberbyname(dbh, args, name)
-      ttyio.echo("member=%r" % (member), interpret=False, level="debug")
+      if member is None:
+        ttyio.echo("%r not found." % (name), level="error")
+        return
+
+      memberid = member["id"]
+      ttyio.echo("memberid=%r member=%r" % (memberid, member), interpret=False, level="debug")
+      sysop = ttyio.inputboolean("sysop? [yN]: ", "N", "YN")
+      bbsengine.setflag(dbh, memberid, "SYSOP", sysop)
+      m = buildrecord(member)
+      ttyio.echo("m=%r" % (m), interpret=False)
+      bbsengine.update(dbh, "engine.__member", memberid, m)
+      dbh.commit()
+      ttyio.echo("member %r updated." % (name), level="success")
       return
 
     def new():
