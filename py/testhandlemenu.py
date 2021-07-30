@@ -23,6 +23,7 @@ def bravo(args, **kwargs):
 
 def displaymenu(menuitems:list, title:str=None):
   terminalwidth = ttyio.getterminalwidth()
+  w = terminalwidth - 7
 
   maxlen = 0
   for m in menuitems:
@@ -30,14 +31,22 @@ def displaymenu(menuitems:list, title:str=None):
         if l > maxlen:
             maxlen = l
 
+#  ttyio.setvariable("menu.boxcharcolor", "{black}")
+  # ttyio.setvariable("menu.boxcharcolor", "{black}")
+  ttyio.setvariable("menu.boxcharcolor", "{blue}")
+  ttyio.setvariable("menu.backgroundcolor", "{bglightblue}")
+  # ttyio.setvariable("menu.backgroundcolor", "{bggray}")
+  # ttyio.setvariable("menu.shadowbackgroundcolor", "{bgdarkgray}")
+  ttyio.setvariable("menu.shadowbackgroundcolor", "{bgblue}")
+
   firstline = False
-  ttyio.echo(" {white}{bggray}%s{/all}" % (" "*(terminalwidth-2)))
+  ttyio.echo(" {white}{var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
   if title is None or title == "":
-    ttyio.echo(" {white}{bggray} {black}{acs:ulcorner}{acs:hline:%d}{black}{acs:urcorner}{bggray}  {/all}" % (terminalwidth - 7))
+    ttyio.echo(" {white}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{black}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
   else:
-    ttyio.echo(" {white}{bggray} {black}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{bggray}  {/all}" % (terminalwidth - 7))
-    ttyio.echo(" {white}{bggray} {black}{acs:vline}{black}%s{black[C}{acs:vline}{bgdarkgray} {bggray} {/all}" % (title.center(terminalwidth-7)))
-    ttyio.echo(" {white}{bggray} {black}{acs:ltee}{acs:hline:%d}{acs:rtee}{bgdarkgray} {bggray} {/all}" % (terminalwidth - 7))
+    ttyio.echo(" {white}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
+    ttyio.echo(" {white}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{black}%s{black[C}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (title.center(terminalwidth-7)), wordwrap=False)
+    ttyio.echo(" {white}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ltee}{acs:hline:%d}{acs:rtee}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth - 7), wordwrap=False)
 
   ch = ord("A")
   options = ""
@@ -46,77 +55,23 @@ def displaymenu(menuitems:list, title:str=None):
       if "description" in m:
         buf += " %s" % (m["description"])
       if firstline is True:
-          ttyio.echo(" {white}{bggray} {black}{black} %s {bggray}  {/all}" % (buf.ljust(terminalwidth-7)), wordwrap=False)
+          ttyio.echo(" {white}{var:menu.backgroundcolor} {black}{black} %s {var:menu.backgroundcolor}  {/all}" % (buf.ljust(terminalwidth-7)), wordwrap=False)
           firstline = False
       else:
-          ttyio.echo(" {white}{bggray} {black}{acs:vline}{black}{black}%s {black}{acs:vline}{bgdarkgray} {bggray} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
+          ttyio.echo(" {white}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{black}{black}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
       options += chr(ch)
       ch += 1
 
   # ttyio.echo(" {white}{bggray} {black}{acs:vline}%s {black}{acs:vline}{bgblack} {bggray} {/all}" % (" "*(terminalwidth-8)), wordwrap=False)
 
-  ttyio.echo(" {bggray} {black}{acs:vline}{black}%s {black}{acs:vline}{bgdarkgray} {bggray} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
+  ttyio.echo(" {var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{black}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
   options += "Q"
 
-  ttyio.echo(" {white}{bggray} {black}{acs:llcorner}{acs:hline:%d}{acs:lrcorner}{bgdarkgray} {bggray} {/all}" % (terminalwidth-7))
+  ttyio.echo(" {white}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:llcorner}{acs:hline:%d}{acs:lrcorner}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth-7), wordwrap=False)
 
-  ttyio.echo(" {white}{bggray}  {bgdarkgray}%s {bggray} {/all}" % (" "*(terminalwidth-6)), wordwrap=False)
-  ttyio.echo(" {bggray}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+  ttyio.echo(" {white}{var:menu.backgroundcolor}  {var:menu.shadowbackgroundcolor}%s {var:menu.backgroundcolor} {/all}" % (" "*(terminalwidth-6)), wordwrap=False)
+  ttyio.echo(" {var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
   return
-
-#def handlemenu(prompt="menu:", menu=[], default="A"):
-#  ttyio.echo("%s{decsc}{cha}{cursorright:4}{cursorup:%d}A{cursorleft}" % (prompt, 4+len(menu)), end="", flush=True)
-#
-#  res = None
-#  pos = 0
-#  done = False
-#  while not done:
-#    ch = ttyio.getch(noneok=False).upper()
-#    oldpos = pos
-#    if ch == "Q":
-#      ttyio.echo("{decrc}Q: Quit")
-#      break
-#    elif ch == "\004":
-#      raise EOFError
-#    elif ch == "KEY_DOWN":
-#      if pos < len(menu):
-#        ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-#        pos += 1
-#      else:
-#        ttyio.echo("{cursorup:%d}" % (pos), end="", flush=True)
-#        pos = 0
-#    elif ch == "KEY_UP":
-#      if pos > 0:
-#        ttyio.echo("{cursorup}", end="", flush=True)
-#        pos -= 1
-#      else:
-#        ttyio.echo("{cursordown:%d}" % (len(menu)), end="", flush=True)
-#        pos = len(menu)
-#    elif ch == "\n":
-#      # ttyio.echo("pos=%d len=%d" % (pos, len(menu)))
-#      return pos
-#    elif ch == "KEY_HOME":
-#      if pos > 0:
-#        ttyio.echo("{cursorup:%d}" % (pos-1), end="", flush=True)
-#        pos = 0
-#    elif ch == "KEY_END":
-#      ttyio.echo("{cursordown:%d}" % (len(menu)-pos), end="", flush=True)
-#      pos = len(menu)+1
-#    elif ch == "KEY_LEFT" or ch == "KEY_RIGHT":
-#      ttyio.echo("{bell}", flush=True, end="")
-#    elif ch == "Q":
-##      ttyio.echo("{decrc}Q: Quit")
-#      return None
-#    else:
-#      if len(ch) > 1:
-#        ttyio.echo("{bell}", end="", flush=True)
-#        continue
-#      i = ord(ch) - ord('A')
-#      if i > len(menu)-1:
-#        ttyio.echo("{bell}", end="", flush=True)
-#        continue
-#      return i
-#  return res
 
 def main():
   alphahelp = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce ultricies diam metus, a interdum nisl dictum a. Praesent et magna finibus, elementum erat vel, lacinia diam. Phasellus a fermentum risus, ullamcorper semper purus. Nunc pellentesque lorem quis egestas consequat. Ut varius venenatis odio, a eleifend turpis euismod nec. Aliquam erat volutpat. Suspendisse vestibulum augue enim, ac facilisis elit tristique quis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Morbi condimentum eros vitae feugiat pellentesque. Ut sed placerat est, eget pharetra dolor. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Nulla eget sagittis leo. Nullam a maximus lectus. Sed nec vulputate libero. In eu erat a purus ultricies feugiat eget sed nulla.
