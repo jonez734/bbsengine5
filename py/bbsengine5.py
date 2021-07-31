@@ -664,7 +664,7 @@ def implodesigpaths(siglist):
   pass
 
 def handlemenu(prompt="menu:", menu=[], default="A"):
-  ttyio.echo("%s{decsc}{cha}{cursorright:4}{cursorup:%d}A{cursorleft}" % (prompt, 4+len(menu)), end="", flush=True)
+  ttyio.echo("%s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(menu)), end="", flush=True)
 
   res = None
   pos = 0
@@ -677,13 +677,15 @@ def handlemenu(prompt="menu:", menu=[], default="A"):
     ch = ch.upper()
     oldpos = pos
     if ch == "Q":
-      ttyio.echo("{decrc}Q: Quit")
+      ttyio.echo("{decrc}{var:menu.inputcolor}Q: Quit{/all}")
       break
     elif ch == "\004":
       raise EOFError
     elif ch == "KEY_DOWN":
       if pos < len(menu):
-        ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+        # ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+        # ttyio.echo("{var:menu.cursorcolor}{var:menu.boxcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+        ttyio.echo("{var:menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
         pos += 1
       else:
         ttyio.echo("{cursorup:%d}" % (pos), end="", flush=True)
