@@ -26,6 +26,123 @@ except ImportError:
 else:
   usegetdate = True
 
+class Node(object):
+  def __init__(self, prg="node", table=""):
+    self.prg = prg
+    self.table = table
+  def load(self, id:int):
+    sql = "select * from %s where id=%%s" % (self.table)
+    dat = (id,)
+    cur = self.dbh.cursor()
+    cur.execute(sql, dat)
+    res = cur.fetchone()
+    if res is None:
+        return False
+
+    attributes = res["attributes"] if "attributes" in res else {}
+    if self.args.debug is True:
+        ttyio.echo("attributes=%r" % (attributes), level="debug")
+
+    for a in self.attributes:
+        ttyio.echo("Node.load.120: a=%r" % (a), level="debug")
+
+        name = a["name"]
+        default = a["default"]
+
+        if name not in attributes:
+            if self.args.debug is True:
+                ttyio.echo("name %r not in database record, using default" % (name), level="warning")
+            value = default
+        else:
+            value = attributes[name]
+
+        if self.args.debug is True:
+            ttyio.echo("Node.load.140: name=%s default=%s value=%s" % (name, default, value), level="debug")
+        setattr(self, name, value)
+
+    self.id = id
+
+  def __update(self):
+      if self.id < 1:
+          ttyio.echo("invalid id passed to update().", level="error")
+          return
+
+      attributes = {}
+      for a in self.attributes:
+          name = a["name"]
+          attr = self.getattribute(name)
+          if attr is None:
+              ttyio.echo("invalid attribute %r" % (name))
+              continue
+          attributes[name] = attr["value"] # self.getattribute(name) # getattr(self, name)
+
+      return bbsengine.updatenodeattributes(self.dbh, self.args, self.id, attributes)
+
+  def isdirty(self):
+      def getattrval(name):
+          for a in self.attributes:
+              if a["name"] == name:
+                  return a["value"] if "value" in a else a["default"]
+
+      for a in self.attributes:
+          name = a["name"]
+          curval = getattr(self, name)
+          oldval = getattrval(name)
+          if curval != oldval:
+              if "debug" in self.args and self.args.debug is True:
+                  ttyio.echo("Node.isdirty.100: name=%r oldval=%r curval=%r" % (name, oldval, curval))
+              return True
+      return False
+
+  def save(self, updatecredits=False):
+      if self.args.debug is True:
+          ttyio.echo("Node.save.100: id=%r" % (self.id), level="debug")
+      if self.id is None:
+          ttyio.echo("id is not set. aborted.", level="error")
+          return None
+
+      if self.memberid is None:
+          ttyio.echo("Node: memberid is not set. aborted.", level="error")
+          return None
+
+      if self.isdirty() is False:
+          if "debug" in self.args and self.args.debug is True:
+              ttyio.echo("%s: clean. no save." % (self.name))
+          return
+      ttyio.echo("%s: dirty. saving." % (self.name))
+
+      # self.dbh = bbsengine.databaseconnect(self.args)
+      try:
+          self.update()
+          if updatecredits is True:
+              # corruption if credits are updated after player.load()
+              bbsengine.setmembercredits(self.dbh, self.memberid, self.credits)
+      except:
+          ttyio.echo("exception saving casino record")
+      else:
+          ttyio.echo("Node.save.100: running commit()", level="debug")
+          self.dbh.commit()
+          ttyio.echo("Node saved", level="success")
+      return
+
+  def __insert(self):
+      attributes = {}
+      for a in self.attributes:
+          name = a["name"]
+          attr = self.getattribute(name)
+          value = attr["value"]
+          ttyio.echo("Node.insert.100: %r=%r" % (name, value))
+          attributes[name] = value
+          ttyio.echo("attributes.name=%r" % (attributes["name"]))
+
+      node = {}
+      node["prg"] = self.prg
+      node["attributes"] = attributes
+      # self.dbh = bbsengine.databaseconnect(self.args)
+      nodeid = bbsengine.insertnode(self.dbh, self.args, node, mogrify=False)
+      ttyio.echo("Node.insert.100: id=%r" % (self.id), level="debug")
+      return nodeid
+
 #def loadconfig(configfile):
 #  import ConfigParser
 #  
@@ -663,6 +780,115 @@ def explodesigpaths(paths):
 def implodesigpaths(siglist):
   pass
 
+class Menu(object):
+  def __init__(self, items, title=None):
+    self.items = items
+    self.title = title
+  def display(self):
+    terminalwidth = ttyio.getterminalwidth()
+    w = terminalwidth - 7
+
+    maxlen = 0
+    for m in self.items:
+          l = len(m["label"])
+          if l > maxlen:
+              maxlen = l
+
+    firstline = False
+    ttyio.echo("{f6} {var:menu.cursorcolor}{var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+    if self.title is None or self.title == "":
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:menu.boxcharcolor}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
+    else:
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.titlecolor}%s{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (self.title.center(terminalwidth-7)), wordwrap=False)
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ltee}{acs:hline:%d}{acs:rtee}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth - 7), wordwrap=False)
+
+    ch = ord("A")
+    options = ""
+    for i in self.items:
+        buf = "[%s] %s" % (chr(ch), i["label"].ljust(maxlen))
+        if "description" in i:
+          buf += " %s" % (i["description"])
+        if firstline is True:
+            ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.itemcolor} %s {var:menu.backgroundcolor}  {/all}" % (buf.ljust(terminalwidth-7)), wordwrap=False)
+            firstline = False
+        else:
+            ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.itemcolor}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
+        options += chr(ch)
+        ch += 1
+
+    # ttyio.echo(" {white}{bggray} {black}{acs:vline}%s {black}{acs:vline}{bgblack} {bggray} {/all}" % (" "*(terminalwidth-8)), wordwrap=False)
+
+    ttyio.echo(" {var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.itemcolor}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
+    options += "Q"
+
+    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:llcorner}{acs:hline:%d}{acs:lrcorner}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth-7), wordwrap=False)
+
+    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor}  {var:menu.shadowbackgroundcolor}%s {var:menu.backgroundcolor} {/all}" % (" "*(terminalwidth-6)), wordwrap=False)
+    ttyio.echo(" {var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+    return
+
+  def handle(self, prompt="menu:", default="Q"):
+    ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(self.items)), end="", flush=True)
+
+    res = None
+    pos = 0
+    done = False
+    while not done:
+      ch = ttyio.getch(noneok=False)
+      if ch is None:
+        time.sleep(0.125)
+        continue
+      ch = ch.upper()
+      oldpos = pos
+      if ch == "Q":
+        ttyio.echo("{decrc}{var:menu.inputcolor}Q: Quit{/all}")
+        break
+      elif ch == "\004":
+        raise EOFError
+      elif ch == "KEY_DOWN":
+        if pos < len(self.items):
+          # ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+          # ttyio.echo("{var:menu.cursorcolor}{var:menu.boxcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+          ttyio.echo("{var:menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
+          pos += 1
+        else:
+          ttyio.echo("{cursorup:%d}" % (pos), end="", flush=True)
+          pos = 0
+      elif ch == "KEY_UP":
+        if pos > 0:
+          ttyio.echo("{cursorup}", end="", flush=True)
+          pos -= 1
+        else:
+          ttyio.echo("{cursordown:%d}" % (len(self.items)), end="", flush=True)
+          pos = len(self.items)
+      elif ch == "\n":
+        # ttyio.echo("pos=%d len=%d" % (pos, len(menu)))
+        return ("select", pos)
+      elif ch == "KEY_HOME":
+        if pos > 0:
+          ttyio.echo("{cursorup:%d}" % (pos-1), end="", flush=True)
+          pos = 0
+      elif ch == "KEY_END":
+        ttyio.echo("{cursordown:%d}" % (len(self.items)-pos), end="", flush=True)
+        pos = len(self.items)+1
+      elif ch == "KEY_LEFT" or ch == "KEY_RIGHT":
+        ttyio.echo("{bell}", flush=True, end="")
+      elif ch == "Q":
+        return ("quit", None)
+      elif ch == "?" or ch == "KEY_F1":
+        return ("help", pos)
+      else:
+        if len(ch) > 1:
+          ttyio.echo("{bell}", end="", flush=True)
+          continue
+        i = ord(ch) - ord('A')
+        if i > len(self.items)-1:
+          ttyio.echo("{bell}", end="", flush=True)
+          continue
+        return ("select", i)
+    return None
+
 def displaymenu(menuitems:list, title:str=None):
   terminalwidth = ttyio.getterminalwidth()
   w = terminalwidth - 7
@@ -708,7 +934,7 @@ def displaymenu(menuitems:list, title:str=None):
   return
 
 def handlemenu(prompt="menu:", menu=[], default="A"):
-  ttyio.echo("%s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(menu)), end="", flush=True)
+  ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(menu)), end="", flush=True)
 
   res = None
   pos = 0
