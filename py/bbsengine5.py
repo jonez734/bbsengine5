@@ -781,16 +781,46 @@ def implodesigpaths(siglist):
   pass
 
 class Menu(object):
-  def __init__(self, items, title=None):
-    self.items = items
-    self.title = title
+  def __init__(self, t, m):
+    self.items = m
+    self.title = t
+
+  def find(name):
+    for m in menuitems:
+      if name == m["name"]:
+        return m
+    else:
+      return None
+
+  def resolverequires(args, menuitems, name):
+    menuitem = find(name)
+    if menuitem is None:
+      return None
+
+    res = None
+    requires = menuitem["requires"] if "requires" in menuitem else ()
+    if len(requires) == 0:
+      return True
+
+    res = None
+    for r in requires:
+      m = find(r)
+      if m is None:
+        return False
+      if "result" in m:
+        if m["result"] is False:
+          return False
+      else:
+        return False
+    return True
+
   def display(self):
     terminalwidth = ttyio.getterminalwidth()
     w = terminalwidth - 7
 
     maxlen = 0
-    for m in self.items:
-          l = len(m["label"])
+    for i in self.items:
+          l = len(i["label"])
           if l > maxlen:
               maxlen = l
 
@@ -828,7 +858,7 @@ class Menu(object):
     ttyio.echo(" {var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     return
 
-  def handle(self, prompt="menu:", default="Q"):
+  def handle(self, prompt="menu: ", default="Q"):
     ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(self.items)), end="", flush=True)
 
     res = None
@@ -846,6 +876,8 @@ class Menu(object):
         break
       elif ch == "\004":
         raise EOFError
+      elif ch == "\014": # ctrl-l (form feed)
+        return "KEY_FF"
       elif ch == "KEY_DOWN":
         if pos < len(self.items):
           # ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
