@@ -1,8 +1,10 @@
 import ttyio4 as ttyio
 import bbsengine5 as bbsengine
 
+from argparse import Namespace
+
 def main():
-  def alpha(args, **kwargs):
+  def generic(args, **kwargs):
     if "label" not in kwargs:
       raise ValueError
     label = kwargs["label"]
@@ -11,13 +13,14 @@ def main():
 
     if "menu" not in kwargs:
       raise ValueError
+
     menu = kwargs["menu"]
 
     menuitem = menu.find(label)
     if menuitem is None:
       raise ValueError
 
-    menuitem["description"] = "yes - alpha"
+    menuitem["description"] = "yes - %s" % (label)
     menuitem["result"] = True
     if "requires" in menuitem:
       requires = menuitem["requires"]
@@ -25,57 +28,16 @@ def main():
       ttyio.echo("all requirements resolved.")
     else:
       ttyio.echo("all requirements not resolved. proceed?")
-    return menuitem["result"]
+    return (menuitem["result"], "@%s result!@" % (label))
+
+  def alpha(args, **kwargs):
+    return generic(args, **kwargs)
 
   def bravo(args, **kwargs):
-    if "label" not in kwargs:
-      raise ValueError
-    label = kwargs["label"]
-    if label is None:
-      raise ValueError
-
-    if "menu" not in kwargs:
-      raise ValueError
-    menu = kwargs["menu"]
-
-    menuitem = menu.find(label)
-    if menuitem is None:
-      raise ValueError
-
-    menuitem["description"] = "yes - bravo"
-    menuitem["result"] = True
-    if "requires" in menuitem:
-      requires = menuitem["requires"]
-    if menu.resolverequires(menuitem) is True:
-      ttyio.echo("all requirements resolved.")
-    else:
-      ttyio.echo("all requirements not resolved. proceed?")
-    return menuitem["result"]
+    return generic(args, **kwargs)
 
   def golf(args, **kwargs):
-    if "label" not in kwargs:
-      raise ValueError
-    label = kwargs["label"]
-    if label is None:
-      raise ValueError
-
-    if "menu" not in kwargs:
-      raise ValueError
-    menu = kwargs["menu"]
-
-    menuitem = menu.find(label)
-    if menuitem is None:
-      raise ValueError
-
-    menuitem["description"] = "yes - golf"
-    menuitem["result"] = True
-    if "requires" in menuitem:
-      requires = menuitem["requires"]
-    if menu.resolverequires(menuitem) is True:
-      ttyio.echo("all requirements resolved.")
-    else:
-      ttyio.echo("all requirements not resolved. proceed?")
-    return menuitem["result"]
+    return generic(args, **kwargs)
 
   menuitems = [
       { "label": "alpha",   "callback": alpha, "description":"foo bar baz", "help": "alphahelp"},
@@ -97,6 +59,8 @@ def main():
   ttyio.setvariable("menu.promptcolor", "{white}")
   ttyio.setvariable("menu.inputcolor", "{white}")
   ttyio.setvariable("menu.disableditemcolor", "{black}")
+
+  args = Namespace()
 
   menu = bbsengine.Menu("test title!", menuitems)
   done = False
@@ -120,7 +84,7 @@ def main():
 #        ttyio.echo("menu[i]=%r" % (menu[i]), interpret=False, level="debug", interpret=False)
         label = menuitems[i]["label"]
         callback = menuitems[i]["callback"]
-        bbsengine.runcallback(None, callback, menu=menu, label=label) # menuitem=menuitems[i])
+        bbsengine.runcallback(args, callback, menu=menu, label=label) # menuitem=menuitems[i])
         continue
       elif op == "help":
         m = menu[i]
@@ -137,4 +101,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
