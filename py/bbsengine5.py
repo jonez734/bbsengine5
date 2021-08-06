@@ -767,13 +767,6 @@ def getterminalwidth():
   else:
     return int(width)
 
-# moved to ttyio
-#def xtname(name):
-#  if sys.stdout.isatty() is False:
-#    return False
-#  print "\x1b]0;%s\x07" % (name)
-#  return
-
 def explodesigpaths(paths):
   pass
 
@@ -781,37 +774,43 @@ def implodesigpaths(siglist):
   pass
 
 class Menu(object):
-  def __init__(self, t, m):
-    self.items = m
+  def __init__(self, t, i, args=None):
     self.title = t
+    self.items = i
+    self.args = args
 
-  def find(name):
-    for m in menuitems:
-      if name == m["name"]:
+  def find(self, label):
+    for m in self.items:
+      if label == m["label"]:
+        # ttyio.echo("Menu.find.120: %s found." % (label), level="debug")
         return m
     else:
       return None
+    return False
 
-  def resolverequires(args, menuitems, name):
-    menuitem = find(name)
+  def resolverequires(self, menuitem):
+    # ttyio.echo("Menu.resolverequires.160: menuitem=%r" % (menuitem), interpret=False)
     if menuitem is None:
-      return None
+      # ttyio.echo("Menu.resolverequires.180: menuitem is None.")
+      raise ValueError
 
-    res = None
     requires = menuitem["requires"] if "requires" in menuitem else ()
     if len(requires) == 0:
+      # ttyio.echo("Menu.resolverequires.140: len(requires) == 0")
       return True
 
-    res = None
     for r in requires:
-      m = find(r)
+      # ttyio.echo("Menu.resolverequires.120: r=%r" % (r), level="debug")
+      m = self.find(r)
       if m is None:
         return False
       if "result" in m:
         if m["result"] is False:
           return False
       else:
+        # ttyio.echo("Menu.resolverequires.200: menuitem.result does not exist, returning False")
         return False
+    # ttyio.echo("Menu.resolverequires.220: returning True")
     return True
 
   def display(self):
@@ -824,7 +823,6 @@ class Menu(object):
           if l > maxlen:
               maxlen = l
 
-    firstline = False
     ttyio.echo("{f6} {var:menu.cursorcolor}{var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     if self.title is None or self.title == "":
       ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:menu.boxcharcolor}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
@@ -835,17 +833,51 @@ class Menu(object):
 
     ch = ord("A")
     options = ""
-    for i in self.items:
-        buf = "[%s] %s" % (chr(ch), i["label"].ljust(maxlen))
-        if "description" in i:
-          buf += " %s" % (i["description"])
-        if firstline is True:
-            ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.itemcolor} %s {var:menu.backgroundcolor}  {/all}" % (buf.ljust(terminalwidth-7)), wordwrap=False)
-            firstline = False
+    for m in self.items:
+      if "result" in m:
+        result = m["result"]
+        if type(result) == tuple:
+          resultbuf = ""
+          r, s = result
+          if r is True:
+            resultbuf = s
+          result = "%s" % (resultbuf)
         else:
-            ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.itemcolor}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
-        options += chr(ch)
-        ch += 1
+          result = "(%r)" % (result)
+      else:
+        result = ""
+
+      requires = m["requires"] if "requires" in m else ()
+
+      if len(requires) == 0:
+        requiresbuf = ""
+      else:
+        requiresbuf = "(requires: %s)" % (oxfordcomma(requires))
+
+      name = m["name"] if "name" in m else None
+      if self.resolverequires(m) is True:
+        ttyio.setvariable("menu.ic", "{var:menu.itemcolor}")
+      else:
+        ttyio.setvariable("menu.ic", "{var:menu.disableditemcolor}")
+#        buf = "[%s] %s %s %s" % (chr(ch), m["label"], result, requiresbuf)
+#        ttyio.echo(" {black}{bgblue} {lightblue}{acs:vline}{bgcyan}{black} %s {bgblue}{lightblue}{acs:vline}{bgblack} {bgblue} {/all}" % (buf.ljust(terminalwidth-9)), wordwrap=False)
+#      else:
+#        buf = "[%s] %s %s %s" % (chr(ch), m["label"], result, requiresbuf)
+
+#        ttyio.echo(" {black}{bgblue} {lightblue}{acs:vline}{bgcyan}{black} {bggray}{white}%s {bgblue}{lightblue}{acs:vline}{bgblack} {bgblue} {/all}" % (buf.ljust(terminalwidth-9)), wordwrap=False)
+
+      buf = "[%s] %s" % (chr(ch), m["label"].ljust(maxlen))
+      if "description" in m:
+        buf += " %s" % (m["description"])
+      if "requires" in m:
+        buf += " (requires: %s)" % (oxfordcomma(requires))
+      if "result" in m:
+        buf += " (result: %s)" % (m["result"])
+
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.ic}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
+
+      options += chr(ch)
+      ch += 1
 
     # ttyio.echo(" {white}{bggray} {black}{acs:vline}%s {black}{acs:vline}{bgblack} {bggray} {/all}" % (" "*(terminalwidth-8)), wordwrap=False)
 
@@ -920,170 +952,6 @@ class Menu(object):
           continue
         return ("select", i)
     return None
-
-def displaymenu(menuitems:list, title:str=None):
-  terminalwidth = ttyio.getterminalwidth()
-  w = terminalwidth - 7
-
-  maxlen = 0
-  for m in menuitems:
-        l = len(m["label"])
-        if l > maxlen:
-            maxlen = l
-
-  firstline = False
-  ttyio.echo("{f6} {var:menu.cursorcolor}{var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
-  if title is None or title == "":
-    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:menu.boxcharcolor}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
-  else:
-    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
-    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.titlecolor}%s{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (title.center(terminalwidth-7)), wordwrap=False)
-    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ltee}{acs:hline:%d}{acs:rtee}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth - 7), wordwrap=False)
-
-  ch = ord("A")
-  options = ""
-  for m in menuitems:
-      buf = "[%s] %s" % (chr(ch), m["label"].ljust(maxlen))
-      if "description" in m:
-        buf += " %s" % (m["description"])
-      if firstline is True:
-          ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.itemcolor} %s {var:menu.backgroundcolor}  {/all}" % (buf.ljust(terminalwidth-7)), wordwrap=False)
-          firstline = False
-      else:
-          ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.itemcolor}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
-      options += chr(ch)
-      ch += 1
-
-  # ttyio.echo(" {white}{bggray} {black}{acs:vline}%s {black}{acs:vline}{bgblack} {bggray} {/all}" % (" "*(terminalwidth-8)), wordwrap=False)
-
-  ttyio.echo(" {var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.itemcolor}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
-  options += "Q"
-
-  ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:llcorner}{acs:hline:%d}{acs:lrcorner}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth-7), wordwrap=False)
-
-  ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor}  {var:menu.shadowbackgroundcolor}%s {var:menu.backgroundcolor} {/all}" % (" "*(terminalwidth-6)), wordwrap=False)
-  ttyio.echo(" {var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
-  return
-
-def handlemenu(prompt="menu:", menu=[], default="A"):
-  ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(menu)), end="", flush=True)
-
-  res = None
-  pos = 0
-  done = False
-  while not done:
-    ch = ttyio.getch(noneok=False)
-    if ch is None:
-      time.sleep(0.125)
-      continue
-    ch = ch.upper()
-    oldpos = pos
-    if ch == "Q":
-      ttyio.echo("{decrc}{var:menu.inputcolor}Q: Quit{/all}")
-      break
-    elif ch == "\004":
-      raise EOFError
-    elif ch == "KEY_DOWN":
-      if pos < len(menu):
-        # ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-        # ttyio.echo("{var:menu.cursorcolor}{var:menu.boxcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-        ttyio.echo("{var:menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-        pos += 1
-      else:
-        ttyio.echo("{cursorup:%d}" % (pos), end="", flush=True)
-        pos = 0
-    elif ch == "KEY_UP":
-      if pos > 0:
-        ttyio.echo("{cursorup}", end="", flush=True)
-        pos -= 1
-      else:
-        ttyio.echo("{cursordown:%d}" % (len(menu)), end="", flush=True)
-        pos = len(menu)
-    elif ch == "\n":
-      # ttyio.echo("pos=%d len=%d" % (pos, len(menu)))
-      return ("select", pos)
-    elif ch == "KEY_HOME":
-      if pos > 0:
-        ttyio.echo("{cursorup:%d}" % (pos-1), end="", flush=True)
-        pos = 0
-    elif ch == "KEY_END":
-      ttyio.echo("{cursordown:%d}" % (len(menu)-pos), end="", flush=True)
-      pos = len(menu)+1
-    elif ch == "KEY_LEFT" or ch == "KEY_RIGHT":
-      ttyio.echo("{bell}", flush=True, end="")
-    elif ch == "Q":
-      return ("quit", None)
-    elif ch == "?" or ch == "KEY_F1":
-      return ("help", pos)
-    else:
-      if len(ch) > 1:
-        ttyio.echo("{bell}", end="", flush=True)
-        continue
-      i = ord(ch) - ord('A')
-      if i > len(menu)-1:
-        ttyio.echo("{bell}", end="", flush=True)
-        continue
-      return ("select", i)
-  return None
-
-#def handlemenu(args, items, oldrecord, currecord, prompt="option", defaulthotkey=""):
-#  hotkeys = {}
-#
-#  hotkeystr = ""
-#
-#  for item in items:
-#      label = item["label"].lower()
-#      hotkey = item["hotkey"].lower() if "hotkey" in item else None
-#      format = item["format"] if "format" in item else "%s"
-#
-#      hotkeys[hotkey] = item # ["longlabel"] if item.has_key("longlabel") else None
-#      if hotkey is not None:
-#          hotkeystr += hotkey
-#
-#      if hotkey == "q":
-#          continue
-#
-#      if hotkey is not None and hotkey in label:
-#          label = label.replace(hotkey.lower(), "[{autocyan}%s{/autocyan}]" % (hotkey.upper()), 1)
-#      else:
-#          label = "[{autocyan}%s{/autocyan}] %s" % (hotkey, label)
-#
-#      if "key" in item:
-#          key = item["key"]
-#          if key in oldrecord and key in currentrecord and oldrecord[key] != currecord[key]:
-#              curval = format % currecord[key]
-#              oldval = format % oldrecord[key]
-#              buf = "%s: %s (was %s)" % (label, curval, oldval)
-#          else:
-#              curval = format % currecord[key]
-#              buf = "%s: %s" % (label, curval)
-#      elif "changed" in item:
-#        if item["changed"] is True:
-#          buf = "%s (changed)" % (label)
-#      else:
-#          buf = label
-#
-#      required = item["required"] if "required" in item else False
-#      if required is True:
-#        buf = "{autored}*{/autored} "+buf
-#      ttyio.echo(buf)
-#
-#  if "q" in hotkeys:
-#      ttyio.echo("{f6}[{autocyan}Q{/autocyan}]uit")
-#
-#  if oldrecord != currecord:
-#      ttyio.echo("{f6}{autocyan}** NEEDS SAVE **{/autocyan}{f6}")
-#  ch = ttyio.accept(prompt, hotkeystr, defaulthotkey).lower()
-#  if ch == "":
-#      return None
-#
-#  longlabel = hotkeys[ch]["longlabel"] if "longlabel" in hotkeys[ch] else None
-#  if longlabel is not None:
-#      ttyio.echo("{autocyan}%s{/autocyan} -- %s" % (ch.upper(), longlabel))
-#  else:
-#      ttyio.echo("{autocyan}%s{/autocyan}" % (ch.upper()))
-#  res = hotkeys[ch] if ch in hotkeys else None
-#  return res
 
 # @since 20200819
 def getmembercredits(args:object, memberid:int=None) -> int:
