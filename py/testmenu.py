@@ -2,14 +2,89 @@ import ttyio4 as ttyio
 import bbsengine5 as bbsengine
 
 def main():
+  def alpha(args, **kwargs):
+    if "label" not in kwargs:
+      raise ValueError
+    label = kwargs["label"]
+    if label is None:
+      raise ValueError
+
+    if "menu" not in kwargs:
+      raise ValueError
+    menu = kwargs["menu"]
+
+    menuitem = menu.find(label)
+    if menuitem is None:
+      raise ValueError
+
+    menuitem["description"] = "yes - alpha"
+    menuitem["result"] = True
+    if "requires" in menuitem:
+      requires = menuitem["requires"]
+    if menu.resolverequires(menuitem) is True:
+      ttyio.echo("all requirements resolved.")
+    else:
+      ttyio.echo("all requirements not resolved. proceed?")
+    return menuitem["result"]
+
+  def bravo(args, **kwargs):
+    if "label" not in kwargs:
+      raise ValueError
+    label = kwargs["label"]
+    if label is None:
+      raise ValueError
+
+    if "menu" not in kwargs:
+      raise ValueError
+    menu = kwargs["menu"]
+
+    menuitem = menu.find(label)
+    if menuitem is None:
+      raise ValueError
+
+    menuitem["description"] = "yes - bravo"
+    menuitem["result"] = True
+    if "requires" in menuitem:
+      requires = menuitem["requires"]
+    if menu.resolverequires(menuitem) is True:
+      ttyio.echo("all requirements resolved.")
+    else:
+      ttyio.echo("all requirements not resolved. proceed?")
+    return menuitem["result"]
+
+  def golf(args, **kwargs):
+    if "label" not in kwargs:
+      raise ValueError
+    label = kwargs["label"]
+    if label is None:
+      raise ValueError
+
+    if "menu" not in kwargs:
+      raise ValueError
+    menu = kwargs["menu"]
+
+    menuitem = menu.find(label)
+    if menuitem is None:
+      raise ValueError
+
+    menuitem["description"] = "yes - golf"
+    menuitem["result"] = True
+    if "requires" in menuitem:
+      requires = menuitem["requires"]
+    if menu.resolverequires(menuitem) is True:
+      ttyio.echo("all requirements resolved.")
+    else:
+      ttyio.echo("all requirements not resolved. proceed?")
+    return menuitem["result"]
+
   menuitems = [
-      { "label": "alpha",   "callback": "alpha", "description":"foo bar baz", "help": "alphahelp"},
-      { "label": "bravo",   "callback": "bravo" },
-      { "label": "charlie", "callback": "charlie" },
+      { "label": "alpha",   "callback": alpha, "description":"foo bar baz", "help": "alphahelp"},
+      { "label": "bravo",   "callback": bravo },
+      { "label": "charlie", "callback": "charlie", "requires": ("alpha", "bravo") },
       { "label": "delta",   "callback": "delta"},
       { "label": "echo",    "callback": "echo"},
       { "label": "foxtrot", "callback": "foxtrot"},
-      { "label": "golf",    "callback": "golf", "description":"another description"}
+      { "label": "golf",    "callback": golf, "description":"another description", "requires":["bravo"]}
   ]
     
   ttyio.setvariable("menu.boxcharcolor", "{bglightgray}{white}")
@@ -19,16 +94,20 @@ def main():
   ttyio.setvariable("menu.boxcolor", "{bgblue}{green}")
   ttyio.setvariable("menu.itemcolor", "{blue}{bglightgray}")
   ttyio.setvariable("menu.titlecolor", "{black}{bglightgray}")
-  ttyio.setvariable("menu.promptcolor", "{white}{bgblack}")
-  ttyio.setvariable("menu.inputcolor", "{white}{bgblack}")
+  ttyio.setvariable("menu.promptcolor", "{white}")
+  ttyio.setvariable("menu.inputcolor", "{white}")
+  ttyio.setvariable("menu.disableditemcolor", "{black}")
 
-  m = bbsengine.Menu(menuitems, title="test title!")
+  menu = bbsengine.Menu("test title!", menuitems)
   done = False
   while not done:
-    m.display()
-    res = m.handle("{var:menu.promptcolor}prompt: {var:menu.inputcolor}")
+    menu.display()
+    res = menu.handle("{var:menu.promptcolor}prompt: {var:menu.inputcolor}")
     if res is None:
       return
+    elif res == "KEY_FF":
+      ttyio.echo("{decrc}refresh")
+      continue
     elif type(res) == tuple:
       (op, i) = res
     else:
@@ -39,7 +118,9 @@ def main():
       if op == "select":
         ttyio.echo("{decrc}{var:menu.inputcolor}%s: %s{/all}" % (chr(ord('A')+i), menuitems[i]["label"]))
 #        ttyio.echo("menu[i]=%r" % (menu[i]), interpret=False, level="debug", interpret=False)
-        bbsengine.runcallback(None, menuitems[i]["callback"], menuitem=menuitems[i])
+        label = menuitems[i]["label"]
+        callback = menuitems[i]["callback"]
+        bbsengine.runcallback(None, callback, menu=menu, label=label) # menuitem=menuitems[i])
         continue
       elif op == "help":
         m = menu[i]
