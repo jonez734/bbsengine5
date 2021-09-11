@@ -576,7 +576,7 @@ def updatenodeattributes(dbh, args:object, nodeid:int, attributes:dict, reset:bo
 
   dat = (Json(attributes),)
   if args.debug is True:
-    ttyio.echo("bbsengine4.updatenodeattributes.100: dat=%r" % (dat), level="debug")
+    ttyio.echo("bbsengine5.updatenodeattributes.100: dat=%r" % (dat), level="debug")
   cur = dbh.cursor()
   if args.debug is True:
     ttyio.echo("updatenodeattributes.100: %r" % (cur.mogrify(sql, dat)), level="debug")
@@ -773,18 +773,46 @@ def explodesigpaths(paths):
 def implodesigpaths(siglist):
   pass
 
+class Form(object):
+  def __init__(self, t, i, args=None):
+    self.items = i
+    self.title = t
+    self.args = args
+  def __len__(self):
+    return len(self.items)
+  def __getitem__(self, index):
+    return self.items[index]
+
+class MenuItem(object):
+  def __init__(self):
+    self.result = None
+    self.description = None
+
+  def display(self):
+    pass
+
 class Menu(object):
   def __init__(self, t, i, args=None):
     self.title = t
     self.items = i
     self.args = args
 
-  def find(self, label):
+  # @see https://stackoverflow.com/questions/11469025/how-to-implement-a-subscriptable-class-in-python-subscriptable-class-not-subsc
+  def __getitem__(self, i):
+    return self.items[i]
+
+  def __len__(self):
+    return len(self.items)
+
+  def find(self, name):
+#    ttyio.echo("Menu.find.180: name=%r" % (name))
     for m in self.items:
-      if label == m["label"]:
-        # ttyio.echo("Menu.find.120: %s found." % (label), level="debug")
+#      ttyio.echo("Menu.find.160: m.name=%r" % (m["name"]))
+      if name == m["name"]:
+#        ttyio.echo("Menu.find.120: %s found." % (name), level="debug")
         return m
     else:
+#      ttyio.echo("Menu.find.140: self.items is empty.")
       return None
     return False
 
@@ -800,17 +828,23 @@ class Menu(object):
       return True
 
     for r in requires:
-      # ttyio.echo("Menu.resolverequires.120: r=%r" % (r), level="debug")
+#      ttyio.echo("Menu.resolverequires.120: r=%r" % (r), level="debug")
       m = self.find(r)
       if m is None:
+#        ttyio.echo("Menu.resolverequires.140: self.find(%r) returned None, returning False." % (r))
         return False
+      if m is False:
+#        ttyio.echo("Menu.resolverequires.160: self.find(%r) returned False, returning False." % (r))
+        return False
+
       if "result" in m:
         if m["result"] is False:
+#          ttyio.echo("Menu.resolverequires.160: m.result is False")
           return False
       else:
-        # ttyio.echo("Menu.resolverequires.200: menuitem.result does not exist, returning False")
+#        ttyio.echo("Menu.resolverequires.200: menuitem.result does not exist, returning False")
         return False
-    # ttyio.echo("Menu.resolverequires.220: returning True")
+#    ttyio.echo("Menu.resolverequires.220: returning True")
     return True
 
   def display(self):
@@ -828,7 +862,7 @@ class Menu(object):
       ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:menu.boxcharcolor}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
     else:
       ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.titlecolor}%s{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (self.title.center(terminalwidth-7)), wordwrap=False)
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.titlecolor}%s{/all}{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (self.title.center(terminalwidth-7)), wordwrap=False)
       ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ltee}{acs:hline:%d}{acs:rtee}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth - 7), wordwrap=False)
 
     ch = ord("A")
@@ -836,23 +870,28 @@ class Menu(object):
     for m in self.items:
       if "result" in m:
         result = m["result"]
+        resultbuf = ""
         if type(result) == tuple:
-          resultbuf = ""
           r, s = result
-          if r is True:
+          if type(s) == str:
             resultbuf = s
-          result = "%s" % (resultbuf)
+          elif (type(s) == tuple or type(s) == list) and len(s) > 0:
+            resultbuf = " ".join(s)
+        elif type(result) == bool:
+          resultbuf = "%r" % (result)
         else:
-          result = "(%r)" % (result)
+          resultbuf = "!*!"
       else:
-        result = ""
+        resultbuf = "**"
+
+#      ttyio.echo("resultbuf=%r" % (resultbuf))
 
       requires = m["requires"] if "requires" in m else ()
 
-      if len(requires) == 0:
-        requiresbuf = ""
-      else:
-        requiresbuf = "(requires: %s)" % (oxfordcomma(requires))
+#      if len(requires) == 0:
+#        requiresbuf = ""
+#      else:
+#        requiresbuf = "(requires: %r)" % (oxfordcomma(requires))
 
       name = m["name"] if "name" in m else None
       if self.resolverequires(m) is True:
@@ -869,12 +908,12 @@ class Menu(object):
       buf = "[%s] %s" % (chr(ch), m["label"].ljust(maxlen))
       if "description" in m:
         buf += " %s" % (m["description"])
-      if "requires" in m:
+      if "requires" in m and len(m["requires"]) > 0:
         buf += " (requires: %s)" % (oxfordcomma(requires))
       if "result" in m:
         buf += " (result: %s)" % (m["result"])
 
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.ic}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
+      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.ic}%s {/all}{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
 
       options += chr(ch)
       ch += 1
@@ -890,11 +929,69 @@ class Menu(object):
     ttyio.echo(" {var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     return
 
+  def run(self):
+    done = False
+    while not done:
+      self.display()
+      res = self.handle("{var:menu.promptcolor}prompt: {var:menu.inputcolor}")
+      if res is None:
+        return
+      elif res == "KEY_FF":
+        ttyio.echo("{decrc}refresh")
+        continue
+      elif type(res) == tuple:
+        (op, i) = res
+      else:
+        ttyio.echo("invalid return type from handle menu %r!" % (type(res)), level="error")
+        break
+
+      if i < len(self.items):
+        if op == "select":
+          ttyio.echo("{decrc}{var:menu.inputcolor}%s: %s{/all}" % (chr(ord('A')+i), self.items[i]["label"]))
+  #        ttyio.echo("menu[i]=%r" % (menu[i]), interpret=False, level="debug", interpret=False)
+          label = self.items[i]["label"]
+          callback = self.items[i]["callback"]
+          menuitem = self.items[i]
+          if self.resolverequires(menuitem) is False:
+            if ttyio.inputboolean("all requirements not resolved. proceed?: ", "N") is False:
+              continue
+
+          res = runcallback(self.args, callback, menu=self, label=label) # menuitem=menuitems[i])
+          ttyio.echo("main.100: bbsengine.runcallback()=%r" % (res,))
+          if type(res) == tuple:
+            r, s = res
+            if type(r) is not bool:
+              raise TypeError
+
+            self.items[i]["result"] = r
+
+            if type(s) == str:
+              description = s
+            elif (type(s) == tuple or type(s) == list) and len(s) > 0:
+              description = " ".join(s)
+            menuitem["description"] = description
+          else:
+            self.items[i]["result"] = res
+          continue
+        elif op == "help":
+          m = self.items[i]
+          ttyio.echo("{decrc}display help for %s" % (m["label"]))
+          if "help" in m:
+            ttyio.echo(m["help"]+"{f6:2}")
+          else:
+            ttyio.echo("{f6}no help defined for this option{f6}")
+          continue
+      else:
+        ttyio.echo("{decrc}Q: Quit{/all}")
+        done = True
+        break
+
   def handle(self, prompt="menu: ", default="Q"):
     ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(self.items)), end="", flush=True)
 
     res = None
-    pos = 0
+    self.pos = 0
+    self.oldpos = 0
     done = False
     while not done:
       ch = ttyio.getch(noneok=False)
@@ -902,7 +999,7 @@ class Menu(object):
         time.sleep(0.125)
         continue
       ch = ch.upper()
-      oldpos = pos
+      self.oldpos = self.pos
       if ch == "Q":
         ttyio.echo("{decrc}{var:menu.inputcolor}Q: Quit{/all}")
         break
@@ -911,37 +1008,37 @@ class Menu(object):
       elif ch == "\014": # ctrl-l (form feed)
         return "KEY_FF"
       elif ch == "KEY_DOWN":
-        if pos < len(self.items):
+        if self.pos < len(self.items):
           # ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
           # ttyio.echo("{var:menu.cursorcolor}{var:menu.boxcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-          ttyio.echo("{var:menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-          pos += 1
+          ttyio.echo("{var:menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+self.pos)), end="", flush=True)
+          self.pos += 1
         else:
-          ttyio.echo("{cursorup:%d}" % (pos), end="", flush=True)
-          pos = 0
+          ttyio.echo("{cursorup:%d}" % (self.pos), end="", flush=True)
+          self.pos = 0
       elif ch == "KEY_UP":
-        if pos > 0:
+        if self.pos > 0:
           ttyio.echo("{cursorup}", end="", flush=True)
-          pos -= 1
+          self.pos -= 1
         else:
           ttyio.echo("{cursordown:%d}" % (len(self.items)), end="", flush=True)
-          pos = len(self.items)
+          self.pos = len(self.items)
       elif ch == "\n":
         # ttyio.echo("pos=%d len=%d" % (pos, len(menu)))
-        return ("select", pos)
+        return ("select", self.pos)
       elif ch == "KEY_HOME":
-        if pos > 0:
-          ttyio.echo("{cursorup:%d}" % (pos-1), end="", flush=True)
-          pos = 0
+        if self.pos > 0:
+          ttyio.echo("{cursorup:%d}" % (self.pos-1), end="", flush=True)
+          self.pos = 0
       elif ch == "KEY_END":
-        ttyio.echo("{cursordown:%d}" % (len(self.items)-pos), end="", flush=True)
-        pos = len(self.items)+1
+        ttyio.echo("{cursordown:%d}" % (len(self.items)-self.pos), end="", flush=True)
+        self.pos = len(self.items)+1
       elif ch == "KEY_LEFT" or ch == "KEY_RIGHT":
         ttyio.echo("{bell}", flush=True, end="")
       elif ch == "Q":
         return ("quit", None)
       elif ch == "?" or ch == "KEY_F1":
-        return ("help", pos)
+        return ("help", self.pos)
       else:
         if len(ch) > 1:
           ttyio.echo("{bell}", end="", flush=True)
@@ -1224,6 +1321,11 @@ def runcallback(args:object, callback, **kwargs):
   if callable(callback) is True:
     return callback(args, **kwargs)
 
+# scoping issues
+#  func = eval(callback)
+#  if callable(func) is True:
+#    return func(args, **kwargs)
+
   s = callback.split(".")
   if len(s) > 1:
     modulepath = ".".join(s[:-1])
@@ -1286,12 +1388,17 @@ def oxfordcomma(seq: List[Any], sepcolor:str="", itemcolor:str="") -> str:
     """Return a grammatically correct human readable string (with an Oxford comma)."""
     seq = [str(s) for s in seq]
 
+#    ttyio.echo("seq=%r" % (seq))
+    if len(seq) == 0:
+      return ""
+
     if len(seq) < 3:
       buf = "%s and %s" % (sepcolor, itemcolor)
       return itemcolor+buf.join(seq) # " and ".join(seq)
 
     buf = "%s, %s" % (sepcolor, itemcolor)
     return itemcolor+buf.join(seq[:-1]) + '%s, and %s' % (sepcolor, itemcolor) + seq[-1]
+
 readablelist = oxfordcomma
 
 # @see https://gist.github.com/sirpengi/5045885 2013-feb-27 in oftcphp sirpengi
