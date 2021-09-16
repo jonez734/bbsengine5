@@ -1309,7 +1309,17 @@ def verifyFileExistsReadable(args, filename):
   filename = os.path.expanduser(filename)
   filename = os.path.expandvars(filename)
   ttyio.echo("filename=%r" % (filename))
-  if os.access(filename, os.R_OK) is True and os.path.isfile(filename) is True:
+  if os.path.exists(filename) is True and os.access(filename, os.R_OK) is True:
+    return True
+  return False
+
+def verifyFileExistsReadableWritable(args, filename):
+  filename = os.path.expanduser(filename)
+  filename = os.path.expandvars(filename)
+  if args is not None and args.debug is True:
+    ttyio.echo("args=%r filename=%r" % (args, filename))
+
+  if os.path.exists(filename) and os.access(filename, os.W_OK) is True and os.access(filename, os.R_OK) is True:
     return True
   return False
 
