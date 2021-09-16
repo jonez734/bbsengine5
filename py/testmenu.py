@@ -6,44 +6,32 @@ from argparse import Namespace
 def main():
   def generic(args, **kwargs):
     if "label" not in kwargs:
-      raise ValueError
+      raise KeyError
     label = kwargs["label"]
     if label is None:
       raise ValueError
+    return (True, ("yes", label, "anotherresultitem"))
 
-    if "menu" not in kwargs:
-      raise ValueError
-
-    menu = kwargs["menu"]
-
-    menuitem = menu.find(label)
-    if menuitem is None:
-      raise ValueError
-
-    menuitem["description"] = "yes - %s" % (label)
-    menuitem["result"] = True
-    if "requires" in menuitem:
-      requires = menuitem["requires"]
-    if menu.resolverequires(menuitem) is True:
-      ttyio.echo("all requirements resolved.")
-    else:
-      ttyio.echo("all requirements not resolved. proceed?")
-    return (menuitem["result"], "@%s result!@" % (label))
+  alphahelp = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce ultricies diam metus, a interdum nisl dictum a. Praesent et magna finibus, elementum erat vel, lacinia diam. Phasellus a fermentum risus, ullamcorper semper purus. Nunc pellentesque lorem quis egestas consequat. Ut varius venenatis odio, a eleifend turpis euismod nec. Aliquam erat volutpat. Suspendisse vestibulum augue enim, ac facilisis elit tristique quis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Morbi condimentum eros vitae feugiat pellentesque. Ut sed placerat est, eget pharetra dolor. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Nulla eget sagittis leo. Nullam a maximus lectus. Sed nec vulputate libero. In eu erat a purus ultricies feugiat eget sed nulla.
+{f6}{f6}Integer neque lorem, eleifend in magna sit amet, cursus finibus risus. Duis rutrum est vehicula lorem vulputate, vitae consequat felis ultricies. In pretium felis vitae metus convallis auctor. Aenean sollicitudin porttitor ultrices. In hac habitasse platea dictumst. Sed maximus semper velit non sodales. Phasellus laoreet enim vitae laoreet cursus. Duis in consequat mi, vel interdum nisi. Aliquam blandit egestas sapien, nec aliquet nibh semper ut. Aliquam porttitor nulla suscipit, tempus dui sed, dignissim eros.
+"""
 
   def alpha(args, **kwargs):
     return generic(args, **kwargs)
-
   def bravo(args, **kwargs):
     return generic(args, **kwargs)
-
+  def charlie(args, **kwargs):
+    return generic(args, **kwargs)
+  def delta(args, **kwargs):
+    return generic(args, **kwargs)
   def golf(args, **kwargs):
     return generic(args, **kwargs)
 
   menuitems = [
-      { "label": "alpha",   "callback": alpha, "description":"foo bar baz", "help": "alphahelp"},
+      { "label": "alpha",   "callback": alpha, "description":"foo bar baz", "help": alphahelp},
       { "label": "bravo",   "callback": bravo },
-      { "label": "charlie", "callback": "charlie", "requires": ("alpha", "bravo") },
-      { "label": "delta",   "callback": "delta"},
+      { "label": "charlie", "callback": charlie, "requires": ("alpha", "bravo") },
+      { "label": "delta",   "callback": delta},
       { "label": "echo",    "callback": "echo"},
       { "label": "foxtrot", "callback": "foxtrot"},
       { "label": "golf",    "callback": golf, "description":"another description", "requires":["bravo"]}
@@ -58,46 +46,12 @@ def main():
   ttyio.setvariable("menu.titlecolor", "{black}{bglightgray}")
   ttyio.setvariable("menu.promptcolor", "{white}")
   ttyio.setvariable("menu.inputcolor", "{white}")
-  ttyio.setvariable("menu.disableditemcolor", "{black}")
+  ttyio.setvariable("menu.disableditemcolor", "{darkgray}")
 
   args = Namespace()
 
-  menu = bbsengine.Menu("test title!", menuitems)
-  done = False
-  while not done:
-    menu.display()
-    res = menu.handle("{var:menu.promptcolor}prompt: {var:menu.inputcolor}")
-    if res is None:
-      return
-    elif res == "KEY_FF":
-      ttyio.echo("{decrc}refresh")
-      continue
-    elif type(res) == tuple:
-      (op, i) = res
-    else:
-      ttyio.echo("invalid return type from handle menu %r!" % (type(res)), level="error")
-      break
-
-    if i < len(menuitems):
-      if op == "select":
-        ttyio.echo("{decrc}{var:menu.inputcolor}%s: %s{/all}" % (chr(ord('A')+i), menuitems[i]["label"]))
-#        ttyio.echo("menu[i]=%r" % (menu[i]), interpret=False, level="debug", interpret=False)
-        label = menuitems[i]["label"]
-        callback = menuitems[i]["callback"]
-        bbsengine.runcallback(args, callback, menu=menu, label=label) # menuitem=menuitems[i])
-        continue
-      elif op == "help":
-        m = menu[i]
-        ttyio.echo("{decrc}display help for %s" % (m["label"]))
-        if "help" in m:
-          ttyio.echo(m["help"]+"{f6:2}")
-        else:
-          ttyio.echo("{f6}no help defined for this option{f6}")
-        continue
-    else:
-      ttyio.echo("{decrc}Q: Quit{/all}foo")
-      done = True
-      break
+  menu = bbsengine.Menu("test of bbsengine.Menu", menuitems)
+  menu.run()
 
 if __name__ == "__main__":
     main()
