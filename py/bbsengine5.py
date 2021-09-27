@@ -674,9 +674,11 @@ def logentry(message, output=True, level=None, priority=LOG_INFO, stripcommands=
 def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
   from dateutil.tz import tzlocal
   from datetime import datetime
-  from time import strftime
+  from time import strftime, tzset
 
   # ttyio.echo("bbsengine.datestamp.100: type(t)=%r" % (type(t)), level="debug")
+
+  time.tzset()
 
   if type(t) == int or type(t) == float:
     t = datetime.fromtimestamp(t, tzlocal())
