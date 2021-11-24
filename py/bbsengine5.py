@@ -1,3 +1,4 @@
+from __future__ import generators    # needs to be at the top of your module
 #
 # Copyright (C) 2008-2021 zoidtechnologies.com. All Rights Reserved.
 #
@@ -6,6 +7,7 @@ import re, os, sys, pwd, time, random
 
 import psycopg2, psycopg2.extras
 from psycopg2.extras import Json
+from psycopg2.extensions import parse_dsn, make_dsn
 
 from datetime import datetime, timedelta, tzinfo
 
@@ -13,7 +15,7 @@ from syslog import *
 
 from argparse import Namespace
 
-import ttyio4 as ttyio
+import ttyio5 as ttyio
 
 import importlib
 
@@ -143,13 +145,6 @@ class Node(object):
       ttyio.echo("Node.insert.100: id=%r" % (self.id), level="debug")
       return nodeid
 
-#def loadconfig(configfile):
-#  import ConfigParser
-#  
-#  cfg = ConfigParser.SafeConfigParser()
-#  cfg.read(configfile)
-#  return cfg
-
 def verifyprimarykey(dbh, args, table, primarykey, value):
   sql = "select 1 as verified from %s where %s=%%s" % (table, primarykey)
   dat = (value,)
@@ -259,7 +254,9 @@ def inputprimarykey(dbh, args, table, primarykey, prompt, default, completer=Non
     if callable(verify) is True:
       if args.debug is True:
         ttyio.echo("inputprimarykey.200: verify is callable", level="debug")
-      if verify(dbh, args, table, primarykey, buf) is True:
+      v = verify(dbh, args, table, primarykey, buf)
+      ttyio.echo("verify=%r" % (v), interpet=False)
+      if v is True:
         if args.debug is True:
           ttyio.echo("verify returned true", level="debug")
         result = buf
@@ -273,8 +270,16 @@ def inputprimarykey(dbh, args, table, primarykey, prompt, default, completer=Non
     
   return result
 
+databasehandles = {}
 def _databaseconnect(**kw):
-  return psycopg2.connect(connection_factory=psycopg2.extras.DictConnection, cursor_factory=psycopg2.extras.RealDictCursor, **kw)
+  dsn = make_dsn(**kw)
+  if dsn in databasehandles:
+    dbh = databasehandles[dsn]
+    return databasehandles[dsn]
+
+  dbh = psycopg2.connect(connection_factory=psycopg2.extras.DictConnection, cursor_factory=psycopg2.extras.RealDictCursor, **kw)
+  databasehandles[dsn] = dbh
+  return dbh
 
 def databaseconnect(args):
     kw = {}
@@ -409,18 +414,26 @@ class sigcompleter(object):
   def __init__(self, args):
     self.dbh = databaseconnect(args)
     self.matches = []
+    eros = checkflag(args, "EROS")
+    self.eros = args.eros if "eros" in args else False
+    if eros is True and self.eros is True:
+      self.eros = True
+    else:
+      self.eros = False
+
     self.debug = args.debug
     if self.debug is True:
       print ("init sigcompleter object")
 
   def getmatches(self, text):
     sql = "select distinct path from engine.sig where path ~ %s"
+    if self.eros is False:
+      sql += " and not path ~ 'top.eros.*'"
+
     if text == "":
       dat = ("top.*{1}",)
     elif text[-1] == ".":
       dat = (text+"*{1}",)
-#    elif text[-1] != ".":
-#      dat = (text+".*{1}",)
     else:
       dat = (text+"*",)
     cur = self.dbh.cursor()
@@ -436,7 +449,7 @@ class sigcompleter(object):
 #    print foo
     return foo
   
-  def completer(self, text, state):
+  def complete(self, text, state):
 #    print "state=",state,"text=",text
     if state == 0:
       self.matches = self.getmatches(text)
@@ -533,7 +546,9 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
   # ttyio.echo("bbsengine.insert.100: sql=%s dat=%s" % (sql, dat), level="debug")
   cur = dbh.cursor()
   if mogrify is True:
-    ttyio.echo(cur.mogrify(sql, [tuple(v.values() for v in dat)]), level="debug")
+    print("bbsengine5.insert.mogrify.100: dat=%r" % (dat))
+#      ttyio.echo(cur.mogrify(sql, [tuple(v.values() for v in dat)]), level="debug")
+    ttyio.echo(cur.mogrify(sql, dat), level="debug", interpret=False)
   cur.execute(sql, dat)
   if returnid is True:
     res = cur.fetchone()
@@ -550,7 +565,7 @@ def insertnode(dbh, args:object, node:dict, table:str="engine.__node", returnid:
     ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
-def updatenodesigs(dbh, args, nodeid, sigpaths):
+def updatenodesigs(dbh, args:object, nodeid:int, sigpaths:str):
   # dbh is passed
   if sigpaths is None or len(sigpaths) == 0:
     return None
@@ -657,11 +672,11 @@ def checkflag(args:object, flag:str, memberid:int=None):
 def logentry(message, output=True, level=None, priority=LOG_INFO, stripcommands=False, datestamp=True):
   if level is not None:
     if level == "debug":
-      message = "{autoblue}** debug ** "+message+"{/autoblue}"
+      message = "{blue}** debug ** "+message+"{/all}"
     elif level == "warn":
-      message = "{autoyellow}** warn ** "+message+"{/autoyellow}"
+      message = "{yellow}** warn ** "+message+"{/all}"
     elif level == "error":
-      message = "{autored}** error ** "+message+"{/autored}"
+      message = "{red}** error ** "+message+"{/all}"
 
   message = ttyio.interpretmci(message, strip=True)
   syslog(priority, message)
@@ -794,10 +809,11 @@ class MenuItem(object):
     pass
 
 class Menu(object):
-  def __init__(self, t, i, args=None):
+  def __init__(self, t, i, args=None, area=""):
     self.title = t
     self.items = i
     self.args = args
+    self.area = area
 
   # @see https://stackoverflow.com/questions/11469025/how-to-implement-a-subscriptable-class-in-python-subscriptable-class-not-subsc
   def __getitem__(self, i):
@@ -810,8 +826,10 @@ class Menu(object):
 #    ttyio.echo("Menu.find.180: name=%r" % (name))
     for m in self.items:
 #      ttyio.echo("Menu.find.160: m.name=%r" % (m["name"]))
-      if name == m["name"]:
+      if "name" in m and name == m["name"]:
 #        ttyio.echo("Menu.find.120: %s found." % (name), level="debug")
+        return m
+      if "label" in m and name == m["label"]:
         return m
     else:
 #      ttyio.echo("Menu.find.140: self.items is empty.")
@@ -853,19 +871,21 @@ class Menu(object):
     terminalwidth = ttyio.getterminalwidth()
     w = terminalwidth - 7
 
+    setarea(self.area)
+
     maxlen = 0
     for i in self.items:
           l = len(i["label"])
           if l > maxlen:
               maxlen = l
 
-    ttyio.echo("{f6} {var:menu.cursorcolor}{var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+    ttyio.echo("{f6} {var:engine.menu.cursorcolor}{var:engine.menu.color}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     if self.title is None or self.title == "":
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:menu.boxcharcolor}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
+      ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:engine.menu.boxcharcolor}{acs:urcorner}{var:engine.menu.color}  {/all}" % (terminalwidth - 7), wordwrap=False)
     else:
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{var:menu.backgroundcolor}  {/all}" % (terminalwidth - 7), wordwrap=False)
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.titlecolor}%s{/all}{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (self.title.center(terminalwidth-7)), wordwrap=False)
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:ltee}{acs:hline:%d}{acs:rtee}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth - 7), wordwrap=False)
+      ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{acs:urcorner}{var:engine.menu.color}  {/all}" % (terminalwidth - 7), wordwrap=False)
+      ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.titlecolor}%s{/all}{var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % (self.title.center(terminalwidth-7)), wordwrap=False)
+      ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:ltee}{acs:hline:%d}{acs:rtee}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % (terminalwidth - 7), wordwrap=False)
 
     ch = ord("A")
     options = ""
@@ -897,9 +917,9 @@ class Menu(object):
 
       name = m["name"] if "name" in m else None
       if self.resolverequires(m) is True:
-        ttyio.setvariable("menu.ic", "{var:menu.itemcolor}")
+        ttyio.setvariable("engine.menu.ic", "{var:engine.menu.itemcolor}")
       else:
-        ttyio.setvariable("menu.ic", "{var:menu.disableditemcolor}")
+        ttyio.setvariable("engine.menu.ic", "{var:engine.menu.disableditemcolor}")
 #        buf = "[%s] %s %s %s" % (chr(ch), m["label"], result, requiresbuf)
 #        ttyio.echo(" {black}{bgblue} {lightblue}{acs:vline}{bgcyan}{black} %s {bgblue}{lightblue}{acs:vline}{bgblack} {bgblue} {/all}" % (buf.ljust(terminalwidth-9)), wordwrap=False)
 #      else:
@@ -915,27 +935,30 @@ class Menu(object):
       if "result" in m:
         buf += " (result: %s)" % (m["result"])
 
-      ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.ic}%s {/all}{var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (buf.ljust(terminalwidth-8)), wordwrap=False)
+      strippedbuf = ttyio.interpretmci(buf, strip=True)
+      ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.ic}%s {/all}{var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % (buf.ljust(terminalwidth-8))) # , " "*(terminalwidth-8)), wordwrap=False)
 
       options += chr(ch)
       ch += 1
 
     # ttyio.echo(" {white}{bggray} {black}{acs:vline}%s {black}{acs:vline}{bgblack} {bggray} {/all}" % (" "*(terminalwidth-8)), wordwrap=False)
 
-    ttyio.echo(" {var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:vline}{var:menu.itemcolor}%s {var:menu.boxcharcolor}{acs:vline}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
+    ttyio.echo(" {var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.itemcolor}%s {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
     options += "Q"
 
-    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor} {var:menu.boxcharcolor}{acs:llcorner}{acs:hline:%d}{acs:lrcorner}{var:menu.shadowbackgroundcolor} {var:menu.backgroundcolor} {/all}" % (terminalwidth-7), wordwrap=False)
+    ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:llcorner}{acs:hline:%d}{acs:lrcorner}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % (terminalwidth-7), wordwrap=False)
 
-    ttyio.echo(" {var:menu.cursorcolor}{var:menu.backgroundcolor}  {var:menu.shadowbackgroundcolor}%s {var:menu.backgroundcolor} {/all}" % (" "*(terminalwidth-6)), wordwrap=False)
-    ttyio.echo(" {var:menu.backgroundcolor}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+    ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color}  {var:engine.menu.shadowcolor}%s {var:engine.menu.color} {/all}" % (" "*(terminalwidth-6)), wordwrap=False)
+    ttyio.echo(" {var:engine.menu.color}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     return
 
-  def run(self):
+  def run(self, prompt="prompt: ", preprompthook=None):
     done = False
     while not done:
       self.display()
-      res = self.handle("{var:menu.promptcolor}prompt: {var:menu.inputcolor}")
+      if callable(preprompthook):
+        preprompthook(self.args)
+      res = self.handle("{var:engine.menu.promptcolor}%s{var:engine.menu.inputcolor}{decsc}" % (prompt))
       if res is None:
         return
       elif res == "KEY_FF":
@@ -949,7 +972,7 @@ class Menu(object):
 
       if i < len(self.items):
         if op == "select":
-          ttyio.echo("{decrc}{var:menu.inputcolor}%s: %s{/all}" % (chr(ord('A')+i), self.items[i]["label"]))
+          ttyio.echo("{decrc}{var:engine.menu.inputcolor}%s: %s{/all}" % (chr(ord('A')+i), self.items[i]["label"]))
   #        ttyio.echo("menu[i]=%r" % (menu[i]), interpret=False, level="debug", interpret=False)
           label = self.items[i]["label"]
           callback = self.items[i]["callback"]
@@ -959,7 +982,6 @@ class Menu(object):
               continue
 
           res = runcallback(self.args, callback, menu=self, label=label) # menuitem=menuitems[i])
-          ttyio.echo("main.100: bbsengine.runcallback()=%r" % (res,))
           if type(res) == tuple:
             r, s = res
             if type(r) is not bool:
@@ -989,7 +1011,7 @@ class Menu(object):
         break
 
   def handle(self, prompt="menu: ", default="Q"):
-    ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(self.items)), end="", flush=True)
+    ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:engine.menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(self.items)), end="", flush=True)
 
     res = None
     self.pos = 0
@@ -1003,7 +1025,7 @@ class Menu(object):
       ch = ch.upper()
       self.oldpos = self.pos
       if ch == "Q":
-        ttyio.echo("{decrc}{var:menu.inputcolor}Q: Quit{/all}")
+        ttyio.echo("{decrc}{var:engine.menu.inputcolor}Q: Quit{/all}")
         break
       elif ch == "\004":
         raise EOFError
@@ -1013,7 +1035,7 @@ class Menu(object):
         if self.pos < len(self.items):
           # ttyio.echo("{black}{bggray}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
           # ttyio.echo("{var:menu.cursorcolor}{var:menu.boxcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+pos)), end="", flush=True)
-          ttyio.echo("{var:menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+self.pos)), end="", flush=True)
+          ttyio.echo("{var:engine.menu.cursorcolor}%s{cursorleft}{cursordown}" % (chr(ord('A')+self.pos)), end="", flush=True)
           self.pos += 1
         else:
           ttyio.echo("{cursorup:%d}" % (self.pos), end="", flush=True)
@@ -1140,10 +1162,10 @@ def pluralize(amount:int, singular:str, plural:str, quantity=True) -> str:
 def startsession():
   pass
 
-def hr(color="", chars="-=", width=None):
+def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
   if width is None:
     width = ttyio.getterminalwidth()
-  buf = color+"{acs:hline:%d}" % (width-1)
+  buf = color+"{acs:hline:%d}{/all}" % (width-1)
   return buf
   
   charslen = len(chars)
@@ -1156,12 +1178,19 @@ def hr(color="", chars="-=", width=None):
 #        hr += "{/%s}" % (color)
   return hr
 
-def title(title:str, titlecolor:str="{reverse}", hrcolor:str="", hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None):
+# titlecolor = "{reverse}"
+# hrcolor = ""
+# hrchars = "{acs:hline}"
+# llcorner="{acs:llcorner}"
+# lrcorner="{acs:lrcorner}"
+# ulcorner="{acs:ulcorner}"
+# urcorner="{acs:urcorner}"
+def title(title:str, titlecolor:str="{var:engine.title.color}", hrcolor:str="{var:engine.title.hrcolor}", hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None):
   if width is None:
     width = ttyio.getterminalwidth()-2
 
   ttyio.echo("{/all}%s%s{acs:hline:%s}%s" % (hrcolor, ulcorner, width, urcorner), end="")
-  ttyio.echo("{f6}{acs:vline}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, title.center(width), hrcolor), end="")
+  ttyio.echo("{f6}{acs:vline}{/all}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, title.center(width), hrcolor), end="")
   ttyio.echo("{f6}%s%s{acs:hline:%s}%s{/all}" % (hrcolor, llcorner, width, lrcorner))
   return
 
@@ -1192,11 +1221,11 @@ def buildargdatabasegroup(parser:object, defaults:dict={}, label="database"):
     databasepassword = defaults["databasepassword"] if "databasepassword" in defaults else None
     
     group = parser.add_argument_group(label)
-    group.add_argument("--databasename", dest="databasename", action="store", default=databasename, help="database name")
-    group.add_argument("--databasehost", dest="databasehost", action="store", default=databasehost, help="database host")
-    group.add_argument("--databaseport", dest="databaseport", action="store", default=databaseport, type=int, help="database port")
-    group.add_argument("--databaseuser", dest="databaseuser", action="store", default=databaseuser, help="database user")
-    group.add_argument("--databasepassword", dest="databasepassword", action="store", default=databasepassword, help="database password")
+    group.add_argument("--databasename", dest="databasename", action="store", default=databasename, type=str, help="database name (default: %(default)r)")
+    group.add_argument("--databasehost", dest="databasehost", action="store", default=databasehost, type=str, help="database host (default: %(default)r)")
+    group.add_argument("--databaseport", dest="databaseport", action="store", default=databaseport, type=int, help="database port (default: %(default)r)")
+    group.add_argument("--databaseuser", dest="databaseuser", action="store", default=databaseuser, type=str, help="database user (default: %(default)r)")
+    group.add_argument("--databasepassword", dest="databasepassword", action="store", default=databasepassword, type=str, help="database password (default: %(default)r)")
     return
 
 # @since 20201229
@@ -1318,7 +1347,7 @@ def verifyFileExistsReadable(args, filename):
 def verifyFileExistsReadableWritable(args, filename):
   filename = os.path.expanduser(filename)
   filename = os.path.expandvars(filename)
-  if args is not None and args.debug is True:
+  if args is not None and "debug" in args and args.debug is True:
     ttyio.echo("args=%r filename=%r" % (args, filename))
 
   if os.path.exists(filename) and os.access(filename, os.W_OK) is True and os.access(filename, os.R_OK) is True:
@@ -1430,3 +1459,43 @@ def collapselist(lst):
     chunked = chunk(lst)
     ranges = ((min(l), max(l)) for l in chunked)
     return ", ".join("{0}-{1}".format(*l) if l[0] != l[1] else l[0] for l in ranges)
+
+
+# @since 20211101
+# @see https://code.activestate.com/recipes/137270-use-generators-for-fetching-large-db-record-sets/
+def ResultIter(cursor, arraysize=1000):
+    'An iterator that uses fetchmany to keep memory usage down'
+    while True:
+        results = cursor.fetchmany(arraysize)
+        if not results:
+            break
+        for result in results:
+            yield result
+
+areastack = []
+
+def setarea(buf, push=True):
+  global areastack
+
+  width = ttyio.getterminalwidth()
+  updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(width-2, " ")))
+  if push is True:
+    areastack.append(buf)
+  return
+
+def poparea():
+  global areastack
+
+#  ttyio.echo("poparea.120: areastack=%r" % (areastack), interpret=False)
+  if len(areastack) < 1:
+    return
+
+  width = ttyio.getterminalwidth()
+
+  areastack.pop()
+  if len(areastack) > 0:
+    buf = areastack[-1]
+#    ttyio.echo("poparea.100: areastack=%r buf=%r" % (areastack, buf), interpret=False)
+    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(width-2, " ")))
+#  ttyio.echo("poparea.140: areastack=%r" % (areastack), interpret=False)
+  return
