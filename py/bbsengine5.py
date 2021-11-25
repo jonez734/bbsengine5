@@ -1495,7 +1495,5 @@ def poparea():
   areastack.pop()
   if len(areastack) > 0:
     buf = areastack[-1]
-#    ttyio.echo("poparea.100: areastack=%r buf=%r" % (areastack, buf), interpret=False)
     updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(width-2, " ")))
-#  ttyio.echo("poparea.140: areastack=%r" % (areastack), interpret=False)
   return
