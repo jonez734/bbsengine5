@@ -1,7 +1,7 @@
 import argparse
 import json
 
-import ttyio4 as ttyio
+import ttyio5 as ttyio
 import bbsengine5 as bbsengine
 
 def verifyMemberNotFound(args, name):
@@ -135,7 +135,7 @@ def email(args, **kwargs):
 def member(args, **kwargs):
     def buildrecord(row):
       rec = {}
-      for k in ("attributes", "id", "name", "email", "password", "datecreated", "createdbyid", "dateupdated", "updatedbyid", "approvedbyid", "dateapproved", "lastlogin", "lastloginfrom"): # , "datecreatedepoch", "lastloginepoch", "dateapprovedepoch", "dateupdatedepoch"): # attributes, datecreated, createdbyid
+      for k in ("credits", "attributes", "id", "name", "email", "password", "datecreated", "createdbyid", "dateupdated", "updatedbyid", "approvedbyid", "dateapproved", "lastlogin", "lastloginfrom"): # , "datecreatedepoch", "lastloginepoch", "dateapprovedepoch", "dateupdatedepoch"): # attributes, datecreated, createdbyid
         if k == "attributes":
           rec[k] = json.dumps(row[k])
         else:
@@ -157,8 +157,19 @@ def member(args, **kwargs):
 
       memberid = member["id"]
       ttyio.echo("memberid=%r member=%r" % (memberid, member), interpret=False, level="debug")
-      sysop = ttyio.inputboolean("sysop? [yN]: ", "N", "YN")
+
+      sysop = ttyio.inputboolean("sysop? [yN]: ", "N")
       bbsengine.setflag(dbh, memberid, "SYSOP", sysop)
+
+      eros = ttyio.inputboolean("eros? [yN]: ", "N")
+      bbsengine.setflag(dbh, memberid, "EROS", eros)
+
+      magician = ttyio.inputboolean("magician? [yN]: ", "N")
+      bbsengine.setflag(dbh, memberid, "MAGIC", magician)
+
+      credits = ttyio.inputinteger("credits: ", member["credits"])
+      member["credits"] = credits
+
       m = buildrecord(member)
       ttyio.echo("m=%r" % (m), interpret=False)
       bbsengine.update(dbh, "engine.__member", memberid, m)
