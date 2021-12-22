@@ -23,16 +23,6 @@ def setarea(args, left):
     return rightbuf
   bbsengine.setarea(left, right)
 
-def updatetopbar(args, area):
-    currentmember = bbsengine.getcurrentmember(args)
-    terminalwidth = bbsengine.getterminalwidth()
-    leftbuf = area
-    buf = ""
-    if currentmember is not None:
-      buf = "{bggray}{white} %s %s " % (leftbuf.ljust(terminalwidth-len(rightbuf)-3, "-"), rightbuf)
-    bbsengine.updatetopbar(buf)
-    return
-
 def runprg(args, **kwargs):
 #  print("runprg.100: trace")
   command = kwargs["command"] if "command" in kwargs else None
@@ -180,7 +170,7 @@ def main():
   #  ttyio.echo("{f6:3}{curpos:%d,0}" % (ttyio.getterminalheight()-2))
     setarea(args, "gfd!")
 
-    prompt = "{f6}{bggray}{white}%s{/bgcolor}{F6}{green}gf main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
+    prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}gf main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
     try:
       # ttyio.echo("prompt=%r" % (prompt))
       buf = ttyio.inputstring(prompt, multiple=False, returnseq=False, verify=None, completer=shellCommandCompleter(args), completerdelims=" ")
