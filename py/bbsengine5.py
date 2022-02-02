@@ -1,4 +1,5 @@
 from __future__ import generators    # needs to be at the top of your module
+
 #
 # Copyright (C) 2008-2021 zoidtechnologies.com. All Rights Reserved.
 #
@@ -20,13 +21,6 @@ import ttyio5 as ttyio
 import importlib
 
 from typing import Any, List, NamedTuple
-
-try:
-  import getdate
-except ImportError:
-  usegetdate = False
-else:
-  usegetdate = True
 
 class Node(object):
   def __init__(self, prg="node", table=""):
@@ -96,7 +90,7 @@ class Node(object):
               return True
       return False
 
-  def save(self, updatecredits=False):
+  def save(self, updatecredits=False) -> None:
       if self.args.debug is True:
           ttyio.echo("Node.save.100: id=%r" % (self.id), level="debug")
       if self.id is None:
@@ -145,7 +139,7 @@ class Node(object):
       ttyio.echo("Node.insert.100: id=%r" % (self.id), level="debug")
       return nodeid
 
-def verifyprimarykey(dbh, args, table, primarykey, value):
+def verifyprimarykey(dbh, args: argparse.Namespace, table, primarykey, value) -> bool:
   sql = "select 1 as verified from %s where %s=%%s" % (table, primarykey)
   dat = (value,)
   cur = dbh.cursor()
@@ -172,7 +166,7 @@ def verifyprimarykey(dbh, args, table, primarykey, value):
   return False
 
 class inputcompleter(object):
-  def __init__(self, dbh, args, table, primarykey):
+  def __init__(self, dbh, args:argparse.Namespace, table, primarykey):
     ttyio.echo("inputcompleter.__init__", level="debug")
     self.args = args
     self.matches = []
@@ -214,7 +208,7 @@ class inputcompleter(object):
     
     return None
 
-def inputprimarykey(dbh, args, table, primarykey, prompt, default, completer=None, verify=None, noneok=False, multi=False, delims=None):
+def inputprimarykey(dbh, args:argparse.Namespace, table, primarykey, prompt, default, completer=None, verify=None, noneok=False, multi=False, delims=None):
   if completer is None:
     completer = inputcompleter(dbh, args, table, primarykey, prompt=prompt)
     ttyio.echo("completer is None", level="debug")
@@ -281,7 +275,7 @@ def _databaseconnect(**kw):
   databasehandles[dsn] = dbh
   return dbh
 
-def databaseconnect(args):
+def databaseconnect(args: argparse.Namespace):
     kw = {}
     if type(args) == type({}):
       if "databasekey" in args:
@@ -308,15 +302,15 @@ def databaseconnect(args):
     
     return _databaseconnect(**kw)
 
-import time as _time
+# import time as _time
 
 # from http://docs.python.org/release/2.5.2/lib/datetime-tzinfo.html
 ZERO = timedelta(0)
 HOUR = timedelta(hours=1)
 
-STDOFFSET = timedelta(seconds = -_time.timezone)
-if _time.daylight:
-    DSTOFFSET = timedelta(seconds = -_time.altzone)
+STDOFFSET = timedelta(seconds = -time.timezone)
+if time.daylight:
+    DSTOFFSET = timedelta(seconds = -time.altzone)
 else:
     DSTOFFSET = STDOFFSET
 
@@ -336,14 +330,14 @@ class LocalTimezone(tzinfo):
             return ZERO
 
     def tzname(self, dt):
-        return _time.tzname[self._isdst(dt)]
+        return time.tzname[self._isdst(dt)]
 
     def _isdst(self, dt):
         tt = (dt.year, dt.month, dt.day,
               dt.hour, dt.minute, dt.second,
               dt.weekday(), 0, -1)
-        stamp = _time.mktime(tt)
-        tt = _time.localtime(stamp)
+        stamp = time.mktime(tt)
+        tt = time.localtime(stamp)
         return tt.tm_isdst > 0
 
 # @since 20120126
@@ -354,6 +348,8 @@ def inputdate(prompt, epoch=None, **kw):
   else:
     buf = ttyio.inputstring(prompt, datestamp(epoch), **kw)
   
+  time.tzset()
+
   try:
     epoch = getdate(buf)
   except:
@@ -473,7 +469,7 @@ def buildsiglist(sigs:str) -> list:
   return res
 
 # @fix: check access to a given sig (eros.*)
-def verifysigpath(args, sigpath):
+def verifysigpath(args: argparse.Namespace, sigpath):
   sql = "select 't' from engine.sig where path=%s"
   dat = (sigpath,)
   dbh = databaseconnect(args)
@@ -484,7 +480,7 @@ def verifysigpath(args, sigpath):
     return False
   return True
 
-def inputsig(args, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigpath, **kw):
+def inputsig(args: argparse.Namespace, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigpath, **kw):
   if args.debug is True:
     ttyio.echo("inputsig entered. multiple=%r verify=%r" % (multiple, verify), level="debug")
 
@@ -557,7 +553,7 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
   cur.close()
   return None
 
-def insertnode(dbh, args:object, node:dict, table:str="engine.__node", returnid:bool=True, primarykey:str="id", mogrify:bool=False):
+def insertnode(dbh, args:argparse.Namespace, node:dict, table:str="engine.__node", returnid:bool=True, primarykey:str="id", mogrify:bool=False):
   node["attributes"] = Json(node["attributes"])
   node["datecreated"] = "now()"
   node["createdbyid"] = getcurrentmemberid(args)
@@ -565,7 +561,7 @@ def insertnode(dbh, args:object, node:dict, table:str="engine.__node", returnid:
     ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
-def updatenodesigs(dbh, args:object, nodeid:int, sigpaths:str):
+def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths:str):
   # dbh is passed
   if sigpaths is None or len(sigpaths) == 0:
     return None
@@ -580,7 +576,7 @@ def updatenodesigs(dbh, args:object, nodeid:int, sigpaths:str):
   dbh.commit()
   return None
 
-def updatenodeattributes(dbh, args:object, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
+def updatenodeattributes(dbh, args:argparse.Namespace, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
   if reset is False:
     sql = "update %s set attributes=attributes||%%s where id=%s" % (table, nodeid)
   else:
@@ -597,7 +593,7 @@ def updatenodeattributes(dbh, args:object, nodeid:int, attributes:dict, reset:bo
     ttyio.echo("updatenodeattributes.100: %r" % (cur.mogrify(sql, dat)), level="debug")
   return cur.execute(sql, dat)
 
-def updatenode(dbh, args:object, id:int, node:dict, reset=False):
+def updatenode(dbh, args:argparse.Namespace, id:int, node:dict, reset=False):
   node["dateupdated"] = "now()"
   node["updatedbyid"] = getcurrentmemberid(args)
   attr = node["attributes"] if "attributes" in node else {}
@@ -626,7 +622,7 @@ def setflag(dbh, memberid, flag, value):
 def getflag(dbh, name, memberid=None):
   sql = """
 select flag.name as name, coalesce(mmf.value, flag.defaultvalue) as value
-from flag left outer join map_member_flag as mmf on flag.name = mmf.flagname
+from engine.flag left outer join engine.map_member_flag as mmf on flag.name = mmf.name
 where flag.name=%s
 """
   dat = [name]
@@ -643,7 +639,8 @@ where flag.name=%s
   cur.close()
 #  print "getflag.0: %r" % (type(res))
   if res is not None and len(res) == 1:
-    return res[0]
+    return res[0]["value"]
+#    return res[0]
   return None
 
 def updateflag(dbh, flag):
@@ -655,7 +652,7 @@ def updateflag(dbh, flag):
   return
 
 # @since 20210106
-def checkflag(args:object, flag:str, memberid:int=None):
+def checkflag(args:argparse.Namespace, flag:str, memberid:int=None):
   memberid = getcurrentmemberid(args)
 
   dbh = databaseconnect(args)
@@ -693,7 +690,7 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
 
   # ttyio.echo("bbsengine.datestamp.100: type(t)=%r" % (type(t)), level="debug")
 
-  time.tzset()
+  tzset()
 
   if type(t) == int or type(t) == float:
     t = datetime.fromtimestamp(t, tzlocal())
@@ -705,7 +702,7 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
 
 currentmemberid = None
 # @since 20120306
-def getcurrentmemberid(args):
+def getcurrentmemberid(args: argparse.Namespace):
   global currentmemberid
 
   if currentmemberid is not None:
@@ -735,7 +732,7 @@ def getcurrentmemberid(args):
   #return currentmemberid
 
 # @since 20170303
-def getcurrentmemberlogin(args):
+def getcurrentmemberlogin(args: argparse.Namespace):
   # membermap = {"jam" : 1}
   loginid = pwd.getpwuid(os.geteuid())[0]
 
@@ -800,10 +797,14 @@ class Form(object):
   def __getitem__(self, index):
     return self.items[index]
 
+menuitemresults = {}
+
 class MenuItem(object):
   def __init__(self):
     self.result = None
+    self.status = None
     self.description = None
+    self.key = None
 
   def display(self):
     pass
@@ -823,61 +824,62 @@ class Menu(object):
     return len(self.items)
 
   def find(self, name):
-#    ttyio.echo("Menu.find.180: name=%r" % (name))
     for m in self.items:
-#      ttyio.echo("Menu.find.160: m.name=%r" % (m["name"]))
       if "name" in m and name == m["name"]:
-#        ttyio.echo("Menu.find.120: %s found." % (name), level="debug")
-        return m
-      if "label" in m and name == m["label"]:
         return m
     else:
-#      ttyio.echo("Menu.find.140: self.items is empty.")
       return None
     return False
 
   def resolverequires(self, menuitem):
-    # ttyio.echo("Menu.resolverequires.160: menuitem=%r" % (menuitem), interpret=False)
+#    ttyio.echo("Menu.resolverequires.160: menuitem=%r" % (menuitem), interpret=False)
     if menuitem is None:
       # ttyio.echo("Menu.resolverequires.180: menuitem is None.")
       raise ValueError
 
+    name = menuitem["name"]
     requires = menuitem["requires"] if "requires" in menuitem else ()
     if len(requires) == 0:
       # ttyio.echo("Menu.resolverequires.140: len(requires) == 0")
       return True
+#    ttyio.echo("requires=%r" % (requires,), interpret=False)
+    for r in requires:
+      if r in menuitemresults:
+#        ttyio.echo("menuitemresults[%s]=%r" % (r, menuitemresults[r]), interpet=False)
+        if menuitemresults[r] is False or menuitemresults[r] is None:
+#          ttyio.echo("returning False")
+          return False
+      else:
+        return False
+#    ttyio.echo("returning True")
+    return True
 
     for r in requires:
-#      ttyio.echo("Menu.resolverequires.120: r=%r" % (r), level="debug")
       m = self.find(r)
-      if m is None:
-#        ttyio.echo("Menu.resolverequires.140: self.find(%r) returned None, returning False." % (r))
-        return False
-      if m is False:
-#        ttyio.echo("Menu.resolverequires.160: self.find(%r) returned False, returning False." % (r))
+      if m is None or m is False:
         return False
 
       if "result" in m:
         if m["result"] is False:
-#          ttyio.echo("Menu.resolverequires.160: m.result is False")
           return False
       else:
-#        ttyio.echo("Menu.resolverequires.200: menuitem.result does not exist, returning False")
         return False
-#    ttyio.echo("Menu.resolverequires.220: returning True")
+
     return True
 
   def display(self):
     terminalwidth = ttyio.getterminalwidth()
     w = terminalwidth - 7
 
-    setarea(self.area)
+#    setarea(self.area)
+#    ttyio.setvariable("engine.menu.resultfailedcolor", "{bgred}")
 
     maxlen = 0
     for i in self.items:
           l = len(i["label"])
           if l > maxlen:
               maxlen = l
+#    ttyio.echo("menuitemresults=%r" % (menuitemresults), interpret=False)
 
     ttyio.echo("{f6} {var:engine.menu.cursorcolor}{var:engine.menu.color}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     if self.title is None or self.title == "":
@@ -889,59 +891,51 @@ class Menu(object):
 
     ch = ord("A")
     options = ""
-    for m in self.items:
-      if "result" in m:
-        result = m["result"]
-        resultbuf = ""
+    status = ""
+    if len(self.items) > 0:
+      for i in self.items:
+        result = i["result"] if "result" in i else None
         if type(result) == tuple:
-          r, s = result
-          if type(s) == str:
-            resultbuf = s
-          elif (type(s) == tuple or type(s) == list) and len(s) > 0:
-            resultbuf = " ".join(s)
+          result, status = result
         elif type(result) == bool:
-          resultbuf = "%r" % (result)
+          status = "%r" % (result)
+
+        if ((type(status) == tuple or type(status) == list)) and len(status) > 0:
+          status = " ".join(status)
         else:
-          resultbuf = "!*!"
-      else:
-        resultbuf = "**"
+          status = "(invalid type %r)" % (type(result))
 
-#      ttyio.echo("resultbuf=%r" % (resultbuf))
+        requires = i["requires"] if "requires" in i else ()
 
-      requires = m["requires"] if "requires" in m else ()
+        name = i["name"] if "name" in i else None
+        if result is False:
+          ttyio.setvariable("engine.menu.ic", "{var:engine.menu.resultfailedcolor}")
+        else:
+          if self.resolverequires(i) is True:
+            ttyio.setvariable("engine.menu.ic", "{var:engine.menu.itemcolor}")
+          else:
+            ttyio.setvariable("engine.menu.ic", "{var:engine.menu.disableditemcolor}")
 
-#      if len(requires) == 0:
-#        requiresbuf = ""
-#      else:
-#        requiresbuf = "(requires: %r)" % (oxfordcomma(requires))
+        buf = "[%s] %s" % (chr(ch), i["label"].ljust(maxlen))
+        if "description" in i:
+          description = i["description"]
+          # descriptionlen = len(ttyio.interpretmci(description, strip=True))
+          buf += " %s" % (i["description"])
+        if "requires" in i and len(i["requires"]) > 0:
+          buf += " (requires: %s)" % (oxfordcomma(requires))
+        if "result" in i:
+          result = i["result"]
+          if result is True:
+            buf += " PASS"
+          elif result is False:
+            buf += " FAIL"
+#          buf += " (result: %s)" % (i["result"])
 
-      name = m["name"] if "name" in m else None
-      if self.resolverequires(m) is True:
-        ttyio.setvariable("engine.menu.ic", "{var:engine.menu.itemcolor}")
-      else:
-        ttyio.setvariable("engine.menu.ic", "{var:engine.menu.disableditemcolor}")
-#        buf = "[%s] %s %s %s" % (chr(ch), m["label"], result, requiresbuf)
-#        ttyio.echo(" {black}{bgblue} {lightblue}{acs:vline}{bgcyan}{black} %s {bgblue}{lightblue}{acs:vline}{bgblack} {bgblue} {/all}" % (buf.ljust(terminalwidth-9)), wordwrap=False)
-#      else:
-#        buf = "[%s] %s %s %s" % (chr(ch), m["label"], result, requiresbuf)
+#        strippedbuf = ttyio.interpretmci(buf, strip=True)
+        ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.ic}%s {/all}{var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % (buf.ljust(terminalwidth-8))) # , " "*(terminalwidth-8)), wordwrap=False)
 
-#        ttyio.echo(" {black}{bgblue} {lightblue}{acs:vline}{bgcyan}{black} {bggray}{white}%s {bgblue}{lightblue}{acs:vline}{bgblack} {bgblue} {/all}" % (buf.ljust(terminalwidth-9)), wordwrap=False)
-
-      buf = "[%s] %s" % (chr(ch), m["label"].ljust(maxlen))
-      if "description" in m:
-        buf += " %s" % (m["description"])
-      if "requires" in m and len(m["requires"]) > 0:
-        buf += " (requires: %s)" % (oxfordcomma(requires))
-      if "result" in m:
-        buf += " (result: %s)" % (m["result"])
-
-      strippedbuf = ttyio.interpretmci(buf, strip=True)
-      ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.ic}%s {/all}{var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % (buf.ljust(terminalwidth-8))) # , " "*(terminalwidth-8)), wordwrap=False)
-
-      options += chr(ch)
-      ch += 1
-
-    # ttyio.echo(" {white}{bggray} {black}{acs:vline}%s {black}{acs:vline}{bgblack} {bggray} {/all}" % (" "*(terminalwidth-8)), wordwrap=False)
+        options += chr(ch)
+        ch += 1
 
     ttyio.echo(" {var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.itemcolor}%s {var:engine.menu.boxcharcolor}{acs:vline}{var:engine.menu.shadowcolor} {var:engine.menu.color} {/all}" % ("[Q] quit".ljust(terminalwidth-8)), wordwrap=False)
     options += "Q"
@@ -953,6 +947,10 @@ class Menu(object):
     return
 
   def run(self, prompt="prompt: ", preprompthook=None):
+    if len(self.items) == 0:
+      ttyio.echo("no menu items defined.")
+      return
+
     done = False
     while not done:
       self.display()
@@ -976,19 +974,22 @@ class Menu(object):
   #        ttyio.echo("menu[i]=%r" % (menu[i]), interpret=False, level="debug", interpret=False)
           label = self.items[i]["label"]
           callback = self.items[i]["callback"]
+          name = self.items[i]["name"]
           menuitem = self.items[i]
           if self.resolverequires(menuitem) is False:
-            if ttyio.inputboolean("all requirements not resolved. proceed?: ", "N") is False:
+            if ttyio.inputboolean("{f6}all requirements not resolved. proceed?: ", "N") is False:
               continue
 
           res = runcallback(self.args, callback, menu=self, label=label) # menuitem=menuitems[i])
           if type(res) == tuple:
-            r, s = res
+            if len(res) == 2:
+              r, s = res
+              req = None
             if type(r) is not bool:
               raise TypeError
-
             self.items[i]["result"] = r
-
+            menuitemresults[name] = r
+            # ttyio.echo("Menu.run.100: s=%r" % (s), level="debug")
             if type(s) == str:
               description = s
             elif (type(s) == tuple or type(s) == list) and len(s) > 0:
@@ -996,6 +997,7 @@ class Menu(object):
             menuitem["description"] = description
           else:
             self.items[i]["result"] = res
+            menuitemresults[name] = res
           continue
         elif op == "help":
           m = self.items[i]
@@ -1011,7 +1013,8 @@ class Menu(object):
         break
 
   def handle(self, prompt="menu: ", default="Q"):
-    ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:engine.menu.cursorcolor}A{cursorleft}" % (prompt, 5+len(self.items)), end="", flush=True)
+    itemcount = len(self.items)
+    ttyio.echo("{f6} %s{decsc}{cha}{cursorright:4}{cursorup:%d}{var:engine.menu.cursorcolor}A{cursorleft}" % (prompt, 5+itemcount), end="", flush=True)
 
     res = None
     self.pos = 0
@@ -1075,7 +1078,7 @@ class Menu(object):
     return None
 
 # @since 20200819
-def getmembercredits(args:object, memberid:int=None) -> int:
+def getmembercredits(args:argparse.Namespace, memberid:int=None) -> int:
   dbh = databaseconnect(args)
   sql = "select credits from engine.member where id=%s" 
   dat = (memberid,)
@@ -1086,11 +1089,11 @@ def getmembercredits(args:object, memberid:int=None) -> int:
     return None
   return res["credits"] if "credits" in res else None
 
-def getcurrentmembercredits(args) -> int:
+def getcurrentmembercredits(args:argparse.Namespace) -> int:
   memberid = getcurrentmemberid(args)
   return getmembercredits(args, memberid)
 
-def getmembername(args:object, memberid:int) -> str:
+def getmembername(args:argparse.Namespace, memberid:int) -> str:
   dbh = databaseconnect(args)
   sql = "select name from engine.member where id=%s"
   dat = (memberid,)
@@ -1101,7 +1104,7 @@ def getmembername(args:object, memberid:int) -> str:
     return res["name"]
   return None
   
-def getcurrentmembername(args) -> str:
+def getcurrentmembername(args:argparse.Namespace) -> str:
   currentmemberid = getcurrentmemberid(args)
   return getmembername(args, currentmemberid)
 
@@ -1116,18 +1119,18 @@ def setmembercredits(dbh:object, memberid:int, amount:int):
   return cur.execute(sql, dat)
 
 # @since 20200802
-def updatememberattribute(dbh:object, args:object, memberid:int, field:str, amount):
+def updatememberattribute(dbh:object, args:argparse.Namespace, memberid:int, field:str, amount):
   pass
 
 # @since 20210203
-def getcurrentmember(args:object, fields="*") -> dict:
+def getcurrentmember(args:argparse.Namespace, fields="*") -> dict:
   currentmemberid = getcurrentmemberid(args)
   dbh = databaseconnect(args)
   return getmemberbyid(dbh, currentmemberid, fields)
 
 # @since 20190924
 # @since 20210203
-def getmemberbyname(dbh:object, args:object, name:str, fields="*") -> dict:
+def getmemberbyname(dbh:object, args:argparse.Namespace, name:str, fields="*") -> dict:
   sql = "select %s from engine.member where name=%%s" % (fields)
   dat = (name,)
   cur = dbh.cursor()
@@ -1202,7 +1205,7 @@ def postgres_to_python_list(arr:str) -> list:
   lst = [a.strip() for a in arr]
   return lst
 
-def getsubnodelist(args, nodeid):
+def getsubnodelist(args: argparse.Namespace, nodeid):
   sql = "select id from engine.node where parentid=%s"
   dat = (nodeid,)
   dbh = databaseconnect(args)
@@ -1261,6 +1264,7 @@ def diceroll(sides:int=6, count:int=1, mode:str="single"):
 
 # @since 20210222
 def initscreen(topmargin=0, bottommargin=0):
+  ttyio.echo("{f6:3}{curpos:%d,0}" % (ttyio.getterminalheight()-(bottommargin+1)))
   terminalheight = ttyio.getterminalheight()
   # ttyio.echo("initscreen.100: terminalheight=%r" % (terminalheight))
   ttyio.echo("{decsc}{decstbm:%d,%d}{decrc}" % (topmargin, terminalheight-bottommargin))
@@ -1311,12 +1315,12 @@ def setmemberattributes(dbh, memberid, attributes, reset=False):
   return cur.execute(sql, dat)
 
 # @since 20210220
-def insertsig(args, dbh, sig):
+def insertsig(args: argparse.Namespace, dbh, sig, mogrify=False):
   attributes = sig["attributes"] if "attributes" in sig else {}
   sig["attributes"] = Json(attributes)
   sig["datecreated"] = "now()"
   sig["createdbyid"] = getcurrentmemberid(args)
-  return insert(dbh, "engine.__sig", sig, returnid=True, primarykey="path", mogrify=False)
+  return insert(dbh, "engine.__sig", sig, returnid=True, primarykey="path", mogrify=mogrify)
 
 # @since 20210220
 def updatesig(dbh, path, sig):
@@ -1336,7 +1340,7 @@ def updateprogress(iteration, total):
   updatebottombar(buf)
   return
 
-def verifyFileExistsReadable(args, filename):
+def verifyFileExistsReadable(args: argparse.Namespace filename):
   filename = os.path.expanduser(filename)
   filename = os.path.expandvars(filename)
   ttyio.echo("filename=%r" % (filename))
@@ -1344,7 +1348,7 @@ def verifyFileExistsReadable(args, filename):
     return True
   return False
 
-def verifyFileExistsReadableWritable(args, filename):
+def verifyFileExistsReadableWritable(args: argparse.Namespace filename):
   filename = os.path.expanduser(filename)
   filename = os.path.expandvars(filename)
   if args is not None and "debug" in args and args.debug is True:
@@ -1354,10 +1358,15 @@ def verifyFileExistsReadableWritable(args, filename):
     return True
   return False
 
-def inputfilename(args, prompt, default, verify=verifyFileExistsReadable, **kw):
+def inputfilename(args: argparse.Namespace prompt, default, verify=verifyFileExistsReadable, **kw):
+  path = os.path.expanduser(default)
+  path = os.path.expandvars(path)
+  dirname = os.path.dirname(path)
+  if dirname is not None and dirname != "":
+    os.chdir(dirname)
   return ttyio.inputstring(prompt, default, verify=verify, **kw)
 
-def runcallback(args:object, callback, **kwargs):
+def runcallback(args:argparse.Namespace, callback, **kwargs):
   # ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), interpret=False)
   if callable(callback) is True:
     return callback(args, **kwargs)
@@ -1474,12 +1483,30 @@ def ResultIter(cursor, arraysize=1000):
 
 areastack = []
 
-def setarea(buf, push=True):
+def setarea(left, right=None, stack=True):
   global areastack
 
-  width = ttyio.getterminalwidth()
-  updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(width-2, " ")))
-  if push is True:
+#  ttyio.echo("bbsengine5.setarea.100: buf=%r" % (buf), level="debug")
+
+  terminalwidth = ttyio.getterminalwidth()
+
+  if callable(left):
+    leftbuf = left()
+  elif type(left) == str:
+    leftbuf = left
+  else:
+    leftbuf = "ERROR"
+
+  if callable(right):
+    rightbuf = right()
+  elif type(right) == str:
+    rightbuf = right
+  else:
+    rightbuf = ""
+
+  buf = "%s%s" % (leftbuf.ljust(terminalwidth-len(rightbuf)-2, " "), rightbuf)
+  updatebottombar("{var:engine.areacolor} %s {/all}" % (buf))
+  if stack is True:
     areastack.append(buf)
   return
 
@@ -1490,10 +1517,53 @@ def poparea():
   if len(areastack) < 1:
     return
 
-  width = ttyio.getterminalwidth()
+  terminalwidth = ttyio.getterminalwidth()
 
   areastack.pop()
   if len(areastack) > 0:
     buf = areastack[-1]
-    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(width-2, " ")))
+    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(terminalwidth-2, " ")))
   return
+
+# @since 20201013
+class genericInputCompleter(object):
+  def __init__(self:object, args:argparse.Namespace, tablename:str, primarykey:str):
+    self.matches = []
+    self.dbh = databaseconnect(args)
+    self.debug = args.debug if "debug" in args else False
+    self.tablename = tablename
+    self.primarykey = primarykey
+
+    if self.debug is True:
+      ttyio.echo("init genericInputCompleter object", level="debug")
+
+  @classmethod
+  def getmatches(self, text):
+    if self.debug is True:
+      ttyio.echo("genericInputCompleter.110: called getmatches()", level="debug")
+    sql = "select %s from %s where %s ilike %%s" % (self.primarykey, self.tablename, self.primarykey)
+    dat = (text+"%",)
+    cur = self.dbh.cursor()
+    if self.debug is True:
+      ttyio.echo("getmatches.140: mogrify=%r" % (cur.mogrify(sql, dat)), level="debug")
+    cur.execute(sql, dat)
+    res = cur.fetchall()
+    if self.debug is True:
+      ttyio.echo("getmatches.130: res=%r" % (res), level="debug")
+    matches = []
+    for rec in res:
+      matches.append(rec[self.primarykey])
+
+    cur.close()
+
+    if self.debug is True:
+      ttyio.echo("getmatches.120: matches=%r" % (matches), level="debug")
+
+    return matches
+
+  @classmethod
+  def complete(self:object, text:str, state):
+    if state == 0:
+      self.matches = self.getmatches(text)
+
+    return self.matches[state]
