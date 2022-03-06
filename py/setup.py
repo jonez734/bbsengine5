@@ -14,10 +14,10 @@ setup(
   author_email="%s@projects.zoidtechnologies.com" % (projectname),
   py_modules=["bbsengine5", "bbs", "engine"],
   scripts=["bbs", "engine"],
-  requires=["ttyio4"],
+  requires=["ttyio5"],
   url="http://bbsengine.org/",
   classifiers=[
-    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.9",
     "Environment :: Console",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
