@@ -3,9 +3,7 @@ import argparse
 import importlib
 
 import ttyio5 as ttyio
-
 import bbsengine5 as bbsengine
-# from bbsengine5 import runcallback
 
 #
 # @see https://sites.google.com/site/xiangyangsite/home/technical-tips/software-development/python/python-readline-completions
@@ -43,7 +41,7 @@ def runprg(args, **kwargs):
   res = eval("a.%s" % (f), {"a": a})
 #  print(res)
   if callable(res) is True:
-    res()
+    res(args, **kwargs)
   else:
     ttyio.echo("programming error", level="error")
   return
@@ -66,11 +64,12 @@ commands = (
     {"command": "teos",     "callback": runprg, "prg": "teos",     "help": "sig view"},
     {"command": "socrates", "callback": runprg, "prg": "socrates", "help": "forums"},
     {"command": "ogun",     "callback": runprg, "prg": "ogun",     "help": "link database"},
-    {"command": "glossary", "callback": runprg, "prg": "aolbonics", "help": "glossary of terms"},
+    {"command": "glossary", "callback": runprg, "prg": "glossary", "help": "glossary of terms"},
     {"command": "empyre",   "callback": runprg, "prg": "empyre",   "help": "run the game empyre"},
     {"command": "achilles", "callback": runprg, "prg": "achilles", "help": "achilles: a study of msg and related food additives"},
     {"command": "engine",   "callback": runprg, "prg": "engine",   "help": "manage engine (members, sessions, etc)"},
     {"command": "weather",  "callback": runprg, "prg": "weather",  "help": "weather report"},
+    {"command": "banner",   "callback": runprg, "prg": "banner",   "help": "print short string in large letters"},
     {"command": "help",     "callback": help},
     # socrates.addpost()?
 )
@@ -89,7 +88,6 @@ class shellCommandCompleter(object):
       vocab.append(c["command"])
     results = [x for x in vocab if x.startswith(text)] + [None]
     return results[state]
-
 
 def help():
   maxlen = 0
@@ -155,21 +153,12 @@ def main():
     ttyio.echo("buf=%r" % (buf))
     return
 
-  bbsengine.initscreen(bottommargin=1)
-
   done = False
   while not done:
     # @todo: handle subcommands as tab-complete
     # ttyio.echo("args=%r" % (args), level="debug")
 
-#    bbsengine.inittopbar()
-#    updatetopbar(args, "gfd3")
-
-    # ttyio.echo(bbsengine.datestamp(format="%c %Z"))
     ttyio.setvariable("engine.areacolor", "{bggray}{white}")
-  #  ttyio.echo("{f6:3}{curpos:%d,0}" % (ttyio.getterminalheight()-2))
-    setarea(args, "gfd!")
-
     prompt = "{bggray}{white}%s{/bgcolor}{F6}{green}gf main: {lightgreen}" % (bbsengine.datestamp(format="%c %Z"))
     try:
       # ttyio.echo("prompt=%r" % (prompt))
