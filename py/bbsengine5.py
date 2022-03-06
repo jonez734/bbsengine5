@@ -14,7 +14,8 @@ from datetime import datetime, timedelta, tzinfo
 
 from syslog import *
 
-from argparse import Namespace
+import argparse
+# from argparse import Namespace
 
 import ttyio5 as ttyio
 
@@ -573,7 +574,7 @@ def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths:str):
   for sigpath in sigpaths:
     sigmap = { "nodeid": nodeid, "sigpath": sigpath }
     insert(dbh, "engine.map_node_sig", sigmap, returnid=False, mogrify=False)
-  dbh.commit()
+#  dbh.commit()
   return None
 
 def updatenodeattributes(dbh, args:argparse.Namespace, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
@@ -653,7 +654,8 @@ def updateflag(dbh, flag):
 
 # @since 20210106
 def checkflag(args:argparse.Namespace, flag:str, memberid:int=None):
-  memberid = getcurrentmemberid(args)
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
 
   dbh = databaseconnect(args)
   sql = "select f.name, coalesce(mmf.value, f.defaultvalue) as value from engine.flag as f left outer join engine.map_member_flag as mmf on (f.name=mmf.name and mmf.memberid=%s) where f.name=%s"
@@ -1188,13 +1190,15 @@ def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
 # lrcorner="{acs:lrcorner}"
 # ulcorner="{acs:ulcorner}"
 # urcorner="{acs:urcorner}"
-def title(title:str, titlecolor:str="{var:engine.title.color}", hrcolor:str="{var:engine.title.hrcolor}", hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None):
+def title(title:str, titlecolor:str="{var:engine.title.color}", hrcolor:str="{var:engine.title.hrcolor}", hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None, fillchar=" "):
   if width is None:
     width = ttyio.getterminalwidth()-2
+  b = ttyio.center(title)
 
-  ttyio.echo("{/all}%s%s{acs:hline:%s}%s" % (hrcolor, ulcorner, width, urcorner), end="")
-  ttyio.echo("{f6}{acs:vline}{/all}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, title.center(width), hrcolor), end="")
-  ttyio.echo("{f6}%s%s{acs:hline:%s}%s{/all}" % (hrcolor, llcorner, width, lrcorner))
+  ttyio.echo("{/all}%s%s{acs:hline:%s}%s" % (hrcolor, ulcorner, width, urcorner), end="", wordwrap=False)
+  ttyio.echo("{f6}{acs:vline}{/all}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, b, hrcolor), end="", wordwrap=False)
+  # ttyio.echo("{f6}{acs:vline}{/all}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, i.center(width), hrcolor), end="")
+  ttyio.echo("{f6}%s%s{acs:hline:%s}%s{/all}" % (hrcolor, llcorner, width, lrcorner), wordwrap=False)
   return
 
 # @since 20200928
@@ -1340,7 +1344,7 @@ def updateprogress(iteration, total):
   updatebottombar(buf)
   return
 
-def verifyFileExistsReadable(args: argparse.Namespace filename):
+def verifyFileExistsReadable(args: argparse.Namespace, filename):
   filename = os.path.expanduser(filename)
   filename = os.path.expandvars(filename)
   ttyio.echo("filename=%r" % (filename))
@@ -1348,7 +1352,7 @@ def verifyFileExistsReadable(args: argparse.Namespace filename):
     return True
   return False
 
-def verifyFileExistsReadableWritable(args: argparse.Namespace filename):
+def verifyFileExistsReadableWritable(args: argparse.Namespace, filename):
   filename = os.path.expanduser(filename)
   filename = os.path.expandvars(filename)
   if args is not None and "debug" in args and args.debug is True:
@@ -1358,7 +1362,7 @@ def verifyFileExistsReadableWritable(args: argparse.Namespace filename):
     return True
   return False
 
-def inputfilename(args: argparse.Namespace prompt, default, verify=verifyFileExistsReadable, **kw):
+def inputfilename(args: argparse.Namespace, prompt, default, verify=verifyFileExistsReadable, **kw):
   path = os.path.expanduser(default)
   path = os.path.expandvars(path)
   dirname = os.path.dirname(path)
@@ -1472,13 +1476,14 @@ def collapselist(lst):
 
 # @since 20211101
 # @see https://code.activestate.com/recipes/137270-use-generators-for-fetching-large-db-record-sets/
-def ResultIter(cursor, arraysize=1000):
+def ResultIter(cursor, arraysize=1000, filterfunc=None, **kw):
     'An iterator that uses fetchmany to keep memory usage down'
     while True:
         results = cursor.fetchmany(arraysize)
         if not results:
             break
         for result in results:
+          if callable(filterfunc) is True and filterfunc(result, **kw) is True:
             yield result
 
 areastack = []
@@ -1486,25 +1491,36 @@ areastack = []
 def setarea(left, right=None, stack=True):
   global areastack
 
-#  ttyio.echo("bbsengine5.setarea.100: buf=%r" % (buf), level="debug")
-
-  terminalwidth = ttyio.getterminalwidth()
+  terminalwidth = ttyio.getterminalwidth()-2
 
   if callable(left):
     leftbuf = left()
   elif type(left) == str:
     leftbuf = left
   else:
-    leftbuf = "ERROR"
+    leftbuf = type(left) # "ERROR"
+  l = ttyio.interpretmci(leftbuf, strip=True)
 
   if callable(right):
     rightbuf = right()
   elif type(right) == str:
     rightbuf = right
-  else:
+  elif right is None:
     rightbuf = ""
+  else:
+    ttyio.echo("setarea.100: type(right)=%r" % (right), level="debug")
+    rightbuf = "ERROR" # type(right)
+  r = ttyio.interpretmci(rightbuf, strip=True)
 
-  buf = "%s%s" % (leftbuf.ljust(terminalwidth-len(rightbuf)-2, " "), rightbuf)
+#  ttyio.echo("r=%r rightbuf=%r" % (r, rightbuf), interpret=False)
+
+  half = terminalwidth // 2
+  if half % 2 == 0:
+    spacer = ""
+  else:
+    spacer = " "
+
+  buf = "%s%s" % (ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
   updatebottombar("{var:engine.areacolor} %s {/all}" % (buf))
   if stack is True:
     areastack.append(buf)
@@ -1522,7 +1538,8 @@ def poparea():
   areastack.pop()
   if len(areastack) > 0:
     buf = areastack[-1]
-    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(terminalwidth-2, " ")))
+#    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(terminalwidth-2, " ")))
+    updatebottombar("{var:engine.areacolor} %s {/all}" % (ttyio.ljust(buf, terminalwidth-2, " ")))
   return
 
 # @since 20201013
