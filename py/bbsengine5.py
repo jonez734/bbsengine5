@@ -471,14 +471,18 @@ def buildsiglist(sigs:str) -> list:
 
 # @fix: check access to a given sig (eros.*)
 def verifysigpath(args: argparse.Namespace, sigpath):
-  sql = "select 't' from engine.sig where path=%s"
-  dat = (sigpath,)
   dbh = databaseconnect(args)
   cur = dbh.cursor()
-  cur.execute(sql, dat)
-  res = cur.fetchone()
-  if res is None:
-    return False
+
+  sql = "select 't' from engine.sig where path=%s"
+  sigpaths = sigpath.split(",")
+  sigpaths = [s.strip() for s in sigpaths]
+  for s in sigpaths:
+    dat = (s,)
+    cur.execute(sql, dat)
+    res = cur.fetchone()
+    if res is None:
+      return False
   return True
 
 def inputsig(args: argparse.Namespace, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigpath, **kw):
@@ -562,7 +566,7 @@ def insertnode(dbh, args:argparse.Namespace, node:dict, table:str="engine.__node
     ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
-def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths:str):
+def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths):
   # dbh is passed
   if sigpaths is None or len(sigpaths) == 0:
     return None
@@ -1483,7 +1487,9 @@ def ResultIter(cursor, arraysize=1000, filterfunc=None, **kw):
         if not results:
             break
         for result in results:
-          if callable(filterfunc) is True and filterfunc(result, **kw) is True:
+          if filterfunc is None:
+            yield result
+          elif callable(filterfunc) is True and filterfunc(result, **kw) is True:
             yield result
 
 areastack = []
