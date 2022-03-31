@@ -19,9 +19,9 @@ def poparea():
 
 def main():
   ttyio.setvariable("engine.areacolor", "{bggray}{white}")
-  ttyio.echo("{f6:3}{curpos:%d,0}" % (ttyio.getterminalheight()-3))
+  ttyio.echo("{f6:3}{curpos:%d,0}" % (ttyio.getterminalheight()-2))
   bbsengine.initscreen(bottommargin=1)
-  bbsengine.setarea("test alpha")
+  bbsengine.setarea(":smile: test alpha")
   ttyio.inputboolean("continue: ", "Y")
   bbsengine.setarea("test bravo")
   ttyio.inputboolean("continue: ", "Y")
@@ -30,7 +30,7 @@ def main():
 
   ttyio.echo(bbsengine.hr())
 
-  ttyio.echo("areastack=%r" % (bbsengine.areastack), interpret=False)
+#  ttyio.echo("areastack=%r" % (bbsengine.areastack), interpret=False)
 
   poparea()
   ttyio.echo("areastack=%r" % (bbsengine.areastack), interpret=False)
@@ -42,7 +42,8 @@ def main():
 
   poparea()
   ttyio.echo("areastack=%r" % (bbsengine.areastack), interpret=False)
-  ttyio.inputboolean("continue: ", "Y")
+  if len(bbsengine.areastack) > 0:
+    ttyio.inputboolean("continue: ", "Y")
 
 if __name__ == "__main__":
     try:

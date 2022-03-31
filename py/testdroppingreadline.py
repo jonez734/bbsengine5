@@ -1,14 +1,21 @@
-import ttyio4
+import sys
+import ttyio4 as ttyio
 
 done = False
 buf = ""
 while not done:
-    ch = ttyio4.getch(timeout=0.125)
+    ch = ttyio.getch(timeout=1.000, echoch=False, noneok=True)
+    ttyio.echo("ch=%r" % (ch))
+    # ttyio.echo("%r" % (ch))
     if ch == '\n':
         break
-
-    if ch.isalnum() or ch.isspace():
+    elif ch is None:
+        pass
+    elif ch.isalnum() or ch.isspace():
         buf += ch
-        print(ch)
+        ttyio.echo("%r" % (ch), interpret=False, flush=True, end="")  # print(ch)
     else:
-        ttyio4.echo("{BELL}bell")
+        ttyio.echo("{BELL}", end="", flush=True)
+
+ttyio.echo("{f6}"+buf+"{f6}", interpret=True, end="")
+
