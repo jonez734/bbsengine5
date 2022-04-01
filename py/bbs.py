@@ -134,7 +134,7 @@ def main():
 #  ttyio.echo("args=%r" % (args), level="debug")
 
   bbsengine.initscreen(bottommargin=1)
-  setarea(args, "gfd!")
+  setarea(args, "galaxy federation")
 
   if args.command == "post-add":
     ttyio.echo("socrates post-add")
