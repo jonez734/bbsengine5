@@ -342,21 +342,28 @@ class LocalTimezone(tzinfo):
         return tt.tm_isdst > 0
 
 # @since 20120126
-def inputdate(prompt, epoch=None, **kw):
+def inputdate(prompt, origvalue=None, **kw):
   from getdate import getdate, error
-  if epoch is None:
+  if origvalue is None:
     buf = ttyio.inputstring(prompt, **kw)
+  elif type(origvalue) == int:
+    buf = ttyio.inputstring(prompt, datestamp(origvalue), **kw)
   else:
-    buf = ttyio.inputstring(prompt, datestamp(epoch), **kw)
+    buf = ttyio.inputstring(prompt, origvalue, **kw)
   
-  time.tzset()
-
-  try:
-    epoch = getdate(buf)
-  except:
+  if buf is None:
     return None
-  else:
-    return epoch
+
+  time.tzset()
+#  print(type(buf))
+  return getdate(buf)
+
+#  try:
+#    epoch = getdate(buf)
+#  except:
+#    return None
+#  else:
+#    return epoch
 
 def areyousure(prompt="are you sure? ", default="N", options="YN") -> bool:
   res = inputboolean(prompt, default=default, options=options)
@@ -461,33 +468,42 @@ def normalizelabelpath(labelpath):
     labelpath = "top."+labelpath
   return labelpath
 
+# @since 20220321
 def buildsiglist(sigs:str) -> list:
-  if type(sigs) == type([]):
-    ttyio.echo("buildsiglist.100: type(sigs) == list", level="warning")
-    return sigs
-  res = re.split("[, ]", sigs)
-  res = [s for s in res if s]
-  return res
+  if type(sigs) == str:
+    sigs = re.split("[, ]", sigs)
 
-# @fix: check access to a given sig (eros.*)
-def verifysigpath(args: argparse.Namespace, sigpath):
+  sigs = [s.strip() for s in sigs]
+  sigs = [s for s in sigs if s]
+
+  return sigs
+
+# @fix: check access to a given sig (eros.*) @done 20220321
+def verifysigpath(args: argparse.Namespace, sigpaths):
+  ttyio.echo("bbsengine5.verifysigpath.100: sigpaths=%r" % (sigpaths), level="debug")
+
+  erosflag = checkflag(args, "EROS")
+  erosarg = args.eros if 'eros' in args else False
+  sql = "select distinct path from engine.sig where path ~ %s"
+  if erosflag is False or erosarg is False:
+    sql += " and not path ~ 'top.eros.*'"
+
   dbh = databaseconnect(args)
   cur = dbh.cursor()
 
-  sql = "select 't' from engine.sig where path=%s"
-  sigpaths = sigpath.split(",")
-  sigpaths = [s.strip() for s in sigpaths]
+#  sql = "select 't' from engine.sig where path=%s"
+  sigpaths = buildsiglist(sigpaths)
   for s in sigpaths:
     dat = (s,)
     cur.execute(sql, dat)
-    res = cur.fetchone()
-    if res is None:
+    if cur.rowcount == 0:
+      ttyio.echo("invalid sig %r" % (s))
       return False
+
   return True
 
 def inputsig(args: argparse.Namespace, prompt="sig: ", oldvalue="", multiple=True, verify=verifysigpath, **kw):
-  if args.debug is True:
-    ttyio.echo("inputsig entered. multiple=%r verify=%r" % (multiple, verify), level="debug")
+  ttyio.echo("inputsig entered. multiple=%r verify=%r" % (multiple, verify), level="debug")
 
   return ttyio.inputstring(prompt, oldvalue, args=args, verify=verify, multiple=multiple, completer=sigcompleter(args), returnseq=True, **kw)
 
@@ -566,16 +582,24 @@ def insertnode(dbh, args:argparse.Namespace, node:dict, table:str="engine.__node
     ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
-def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths):
-  # dbh is passed
+def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths, completerdelims=", "):
   if sigpaths is None or len(sigpaths) == 0:
     return None
 
+  ttyio.echo("bbsengine5.updatenodesigs.100: sigpaths=%r" % (sigpaths), interpret=False)
+  sigpaths = buildsiglist(sigpaths)
+#  if type(sigpaths) == str:
+#    sigpaths = re.split("|".join(completerdelims), sigpaths)
+#    sigpaths = [s.strip() for s in sigpaths]
+#    sigpaths = [s for s in sigpaths if s]
+  
+  # dbh is first arg
   cur = dbh.cursor()
   sql = "delete from engine.map_node_sig where nodeid=%s"
   dat = (nodeid,)
   cur.execute(sql, dat)
   for sigpath in sigpaths:
+    ttyio.echo("bbsengine5.updatenodesigs.100: sigpath=%r" % (sigpath))
     sigmap = { "nodeid": nodeid, "sigpath": sigpath }
     insert(dbh, "engine.map_node_sig", sigmap, returnid=False, mogrify=False)
 #  dbh.commit()
@@ -690,6 +714,7 @@ def logentry(message, output=True, level=None, priority=LOG_INFO, stripcommands=
   return
 
 def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
+  from getdate import getdate, error
   from dateutil.tz import tzlocal
   from datetime import datetime
   from time import strftime, tzset
@@ -702,6 +727,9 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
     t = datetime.fromtimestamp(t, tzlocal())
   elif t is None:
     t = datetime.now(tzlocal())
+  elif type(t) == str:
+    epoch = getdate(t)
+    t = datetime.fromtimestamp(epoch, tzlocal())
 
   stamp = strftime(format, t.timetuple())
   return stamp
@@ -1194,15 +1222,17 @@ def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
 # lrcorner="{acs:lrcorner}"
 # ulcorner="{acs:ulcorner}"
 # urcorner="{acs:urcorner}"
-def title(title:str, titlecolor:str="{var:engine.title.color}", hrcolor:str="{var:engine.title.hrcolor}", hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None, fillchar=" "):
+def title(title:str, hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None, fillchar=" "):
   if width is None:
     width = ttyio.getterminalwidth()-2
-  b = ttyio.center(title)
+#  buf = ttyio.center(title, width)
+  buf = title.center(width) # ttyio.center(title, width)
+#  b = title.center(width) # ttyio.center(title)
 
-  ttyio.echo("{/all}%s%s{acs:hline:%s}%s" % (hrcolor, ulcorner, width, urcorner), end="", wordwrap=False)
-  ttyio.echo("{f6}{acs:vline}{/all}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, b, hrcolor), end="", wordwrap=False)
+  ttyio.echo("{/all}{var:engine.title.hrcolor}%s{acs:hline:%s}%s" % (ulcorner, width, urcorner), wordwrap=False)
+  ttyio.echo("{var:engine.title.hrcolor}{acs:vline}{/all}{var:engine.title.color}%s{/all}{var:engine.title.hrcolor}{acs:vline}{/all}" % (buf), wordwrap=False)
   # ttyio.echo("{f6}{acs:vline}{/all}%s%s{/all}%s{acs:vline}{/all}" % (titlecolor, i.center(width), hrcolor), end="")
-  ttyio.echo("{f6}%s%s{acs:hline:%s}%s{/all}" % (hrcolor, llcorner, width, lrcorner), wordwrap=False)
+  ttyio.echo("{var:engine.title.hrcolor}%s{acs:hline:%s}%s{/all}" % (llcorner, width, lrcorner), wordwrap=False)
   return
 
 # @since 20200928
@@ -1505,6 +1535,7 @@ def setarea(left, right=None, stack=True):
     leftbuf = left
   else:
     leftbuf = type(left) # "ERROR"
+
   l = ttyio.interpretmci(leftbuf, strip=True)
 
   if callable(right):
@@ -1520,14 +1551,10 @@ def setarea(left, right=None, stack=True):
 
 #  ttyio.echo("r=%r rightbuf=%r" % (r, rightbuf), interpret=False)
 
-  half = terminalwidth // 2
-  if half % 2 == 0:
-    spacer = ""
-  else:
-    spacer = " "
-
-  buf = "%s%s" % (ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
-  updatebottombar("{var:engine.areacolor} %s {/all}" % (buf))
+#  buf = "%s%s" % (ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
+  buf = " %s%s " % (leftbuf.ljust(terminalwidth-len(r)), rightbuf) 
+  #ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
+  updatebottombar("{var:engine.areacolor}%s{/all}" % (buf))
   if stack is True:
     areastack.append(buf)
   return
