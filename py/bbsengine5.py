@@ -23,6 +23,15 @@ import importlib
 
 from typing import Any, List, NamedTuple
 
+# @since 20220406
+def checkeros(args, memberid:int=None) -> bool:
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
+  if checkmemberflag(args, "EROS", memberid) and args.eros is True:
+    return True
+  return False
+
 class Node(object):
   def __init__(self, prg="node", table=""):
     self.prg = prg
@@ -1185,7 +1194,10 @@ def getmemberbyid(dbh:object, memberid:int, fields="*") -> dict:
 
 def pluralize(amount:int, singular:str, plural:str, quantity=True) -> str:
   if amount is None or amount == 0:
-    return "no %s" % (plural)
+    if quantity is True:
+      return "no %s" % (plural)
+    return plural
+
   if quantity is True:
     if amount == 1:
       return "%s %s" % (amount, singular)
@@ -1571,8 +1583,8 @@ def poparea():
   areastack.pop()
   if len(areastack) > 0:
     buf = areastack[-1]
-#    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(terminalwidth-2, " ")))
-    updatebottombar("{var:engine.areacolor} %s {/all}" % (ttyio.ljust(buf, terminalwidth-2, " ")))
+    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(terminalwidth-2, " ")))
+#    updatebottombar("{var:engine.areacolor} %s {/all}" % (ttyio.ljust(buf, terminalwidth-2, " ")))
   return
 
 # @since 20201013
