@@ -32,6 +32,15 @@ def checkeros(args, memberid:int=None) -> bool:
     return True
   return False
 
+# @since 20220420
+def checkmagic(args, memberid:int=None) -> bool:
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
+  if checkmemberflag(args, "MAGIC", memberid):
+    return True
+  return False
+
 class Node(object):
   def __init__(self, prg="node", table=""):
     self.prg = prg
