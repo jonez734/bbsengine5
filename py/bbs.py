@@ -21,30 +21,49 @@ def setarea(args, left):
     return rightbuf
   bbsengine.setarea(left, right)
 
-def runprg(args, **kwargs):
-#  print("runprg.100: trace")
-  command = kwargs["command"] if "command" in kwargs else None
-  if command is None:
-    return None
-  module = command["prg"] if "prg" in command else None
-#  ttyio.echo("runprg.120: module=%r" % (module))
-  if module is None:
-    return None
-  x = module.split(".")
+def callprgmethod(args, path="main", **kwargs):
+  x = path.split(".")
   m = x[0]
   if len(x) == 1:
     f = "main"
   else:
     f = x[1]
+
   a = importlib.import_module(m)
 #  ttyio.echo("a=%r" % (a), interpet=False, level="debug")
   res = eval("a.%s" % (f), {"a": a})
-#  print(res)
   if callable(res) is True:
     res(args, **kwargs)
   else:
-    ttyio.echo("programming error", level="error")
+    ttyio.echo("%r is not callable" % (path), level="error")
   return
+  
+def runprg(args, **kwargs):
+#  print("runprg.100: trace")
+#  parents = kwargs["parents"] if "parents" in kwargs else []
+  command = kwargs["command"] if "command" in kwargs else None
+  prg = command["prg"] if "prg" in command else None
+  if command is None:
+    return None
+  return bbsengine.runcallback(args, prg, **kwargs)  # callprgmethod(args, prg, **kwargs)
+#  ttyio.echo("runprg.120: module=%r" % (module))
+#  if prg is None:
+#    return None
+#  x = prg.split(".")
+#  m = x[0]
+#  if len(x) == 1:
+#    f = "main"
+#  else:
+#    f = x[1]
+#  a = importlib.import_module(m)
+#  ttyio.echo("a=%r" % (a), interpet=False, level="debug")
+#  res = eval("a.%s" % (f), {"a": a})
+#  print(res)
+#  if callable(res) is True:
+#    res(args, **kwargs)
+#  else:
+#    ttyio.echo("programming error", level="error")
+#  return
 
 def shellout(args, **kwargs):
   if "command" in kwargs:
@@ -66,7 +85,7 @@ commands = (
     {"command": "ogun",     "callback": runprg, "prg": "ogun",     "help": "link database"},
     {"command": "glossary", "callback": runprg, "prg": "glossary", "help": "glossary of terms"},
     {"command": "empyre",   "callback": runprg, "prg": "empyre",   "help": "run the game empyre"},
-    {"command": "achilles", "callback": runprg, "prg": "achilles", "help": "achilles: a study of msg and related food additives"},
+    {"command": "achilles", "callback": runprg, "prg": "achilles", "help": "achilles: a study of msg and related flavor enhancers"},
     {"command": "engine",   "callback": runprg, "prg": "engine",   "help": "manage engine (members, sessions, etc)"},
     {"command": "weather",  "callback": runprg, "prg": "weather",  "help": "weather report"},
     {"command": "banner",   "callback": runprg, "prg": "banner",   "help": "print short string in large letters"},
@@ -96,8 +115,8 @@ def help():
     if l > maxlen:
       maxlen = l
 
-  ttyio.echo("help.100: l=%r" % (maxlen))
-  bbsengine.title("shell commands", hrcolor="{green}", titlecolor="{bggray}{white}")
+  ttyio.echo("help.100: l=%r" % (maxlen), level="debug")
+  bbsengine.title("shell commands") #, hrcolor="{green}", titlecolor="{bggray}{white}")
   for c in commands:
     n = c["command"].ljust(maxlen)
     if "help" in c:
@@ -130,16 +149,17 @@ def main():
   p = subparsers.add_parser("post-read-new", help="read new posts")
   # parser_b.add_argument('--baz', choices='XYZ', help='baz help')
   p = subparsers.add_parser("link-read-new", help="read new links")
+  
   args = parser.parse_args()
 #  ttyio.echo("args=%r" % (args), level="debug")
 
   bbsengine.initscreen(bottommargin=1)
-  setarea(args, "galaxy federation")
+  setarea(args, "the galaxy federation bbs")
 
   if args.command == "post-add":
     ttyio.echo("socrates post-add")
     buf = ["socrates"]
-    for attr in ("databasehost", "databasename", "databaseport", "databaseuser", "databasepassword", "title", "freeze", "eros", "draft"):
+    for attr in ("databasehost", "databasename", "databaseport", "databaseuser", "databasepassword", "title", "freeze", "eros", "draft", "magic"):
       if attr in args:
         buf.append("--%s=%r" % (attr, getattr(args, attr)))
     buf.append("post-add")
@@ -184,9 +204,10 @@ def main():
     argv = buf.split(" ")
     for c in commands:
       command = c["command"]
-      callback = c["callback"]
       if argv[0] == command:
         found = True
+        callback = c["callback"]
+        ttyio.echo("bbs.main.200: command=%r callback=%r" % (command, callback), interpret=False)
         bbsengine.runcallback(args, callback, command=c)
         break
     if found is False:
