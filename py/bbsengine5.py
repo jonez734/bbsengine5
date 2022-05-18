@@ -542,7 +542,7 @@ def getsignamefromid(dbh, id):
   return None
 
 def update(dbh, table, key, values:dict, primarykey="id"):
-  ttyio.echo("bbsengine5.update.100: values=%r" % (values), interpret=False)
+  ttyio.echo("bbsengine5.update.100: values=%r" % (values), level="debug") # interpret=False)
   if primarykey in values:
     del values[primarykey]
 
@@ -583,7 +583,7 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
   if mogrify is True:
     print("bbsengine5.insert.mogrify.100: dat=%r" % (dat))
 #      ttyio.echo(cur.mogrify(sql, [tuple(v.values() for v in dat)]), level="debug")
-    ttyio.echo(cur.mogrify(sql, dat), level="debug", interpret=False)
+    ttyio.echo(cur.mogrify(sql, dat), level="debug")
   cur.execute(sql, dat)
   if returnid is True:
     res = cur.fetchone()
@@ -604,7 +604,7 @@ def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths, completer
   if sigpaths is None or len(sigpaths) == 0:
     return None
 
-  ttyio.echo("bbsengine5.updatenodesigs.100: sigpaths=%r" % (sigpaths), interpret=False)
+  ttyio.echo("bbsengine5.updatenodesigs.100: sigpaths=%r" % (sigpaths), level="debug")
   sigpaths = buildsiglist(sigpaths)
 #  if type(sigpaths) == str:
 #    sigpaths = re.split("|".join(completerdelims), sigpaths)
@@ -733,6 +733,7 @@ def logentry(message, output=True, level=None, priority=LOG_INFO, stripcommands=
 
 def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
   from getdate import getdate, error
+
   from dateutil.tz import tzlocal
   from datetime import datetime
   from time import strftime, tzset
@@ -772,7 +773,8 @@ def getcurrentmemberid(args: argparse.Namespace):
 
   # if args.debug is True:
   currentmemberid = res["id"]
-  ttyio.echo("getcurrentmemberid.100: currentmemberid=%r" % (currentmemberid), level="debug")
+  if args.debug is True:
+    ttyio.echo("getcurrentmemberid.100: currentmemberid=%r" % (currentmemberid), level="debug")
   return currentmemberid
 
   if res is None:
@@ -1275,14 +1277,15 @@ def getsubnodelist(args: argparse.Namespace, nodeid):
   return res
 
 # @since 20201228
-def buildargdatabasegroup(parser:object, defaults:dict={}, label="database"):
+def buildargdatabasegroup(parentparser:object, defaults:dict={}, label="database options"):
     databasename = defaults["databasename"] if "databasename" in defaults else "zoidweb5"
     databasehost = defaults["databasehost"] if "databasehost" in defaults else "localhost"
     databaseport = defaults["databaseport"] if "databaseport" in defaults else "5432"
     databaseuser = defaults["databaseuser"] if "databaseuser" in defaults else None
     databasepassword = defaults["databasepassword"] if "databasepassword" in defaults else None
     
-    group = parser.add_argument_group(label)
+    group = parentparser.add_argument_group(label)
+#    group = argparse.ArgumentParser("database", parents=[parentparser], add_help=False)
     group.add_argument("--databasename", dest="databasename", action="store", default=databasename, type=str, help="database name (default: %(default)r)")
     group.add_argument("--databasehost", dest="databasehost", action="store", default=databasehost, type=str, help="database host (default: %(default)r)")
     group.add_argument("--databaseport", dest="databaseport", action="store", default=databaseport, type=int, help="database port (default: %(default)r)")
@@ -1344,7 +1347,7 @@ def updatetopbar(buf:str):
 # @since 20210222
 def updatebottombar(buf:str) -> None:
   terminalheight = ttyio.getterminalheight()
-  # ttyio.echo("updatebottombar.100: buf=%r" % (buf), interpret=False, level="debug")
+#  ttyio.echo("updatebottombar.100: buf=%r" % (buf), level="debug")
   ttyio.echo("{decsc}{/all}{curpos:%d,0}%s{eraseline}{decrc}" % (terminalheight, buf), wordwrap=False, end="")
   return
 
@@ -1425,56 +1428,71 @@ def inputfilename(args: argparse.Namespace, prompt, default, verify=verifyFileEx
     os.chdir(dirname)
   return ttyio.inputstring(prompt, default, verify=verify, **kw)
 
-def runcallback(args:argparse.Namespace, callback, **kwargs):
-  # ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), interpret=False)
-  if callable(callback) is True:
-    return callback(args, **kwargs)
+def runcallback(args:object, callback, **kwargs): # s:argparse.Namespace, callback, argparser=None, **kwargs):
+  if args.debug is True:
+    ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), level="debug")# interpret=False)
+#  if argparser is not None:
+#    args = argparser.parse_args()
 
-# scoping issues
-#  func = eval(callback)
-#  if callable(func) is True:
-#    return func(args, **kwargs)
+  if callback is None:
+    if args.debug is True:
+      ttyio.echo("runcallback.140: callback is None", level="debug")
+    return None
+
+  if callable(callback) is True:
+    if args.debug is True:
+      ttyio.echo("runcallback.160: callback is callable", level="debug")
+    return callback(args, **kwargs)
 
   s = callback.split(".")
   if len(s) > 1:
     modulepath = ".".join(s[:-1])
-    functionname = s[len(s)-1:][0]
+    funcname = s[len(s)-1:][0]
   else:
-    modulepath = None
-    functionname = s[0]
+    modulepath = s[0] # None
+    funcname = "main" # s[0]
 
-  ttyio.echo("runcallback.160: modulepath=%r functionname=%r" % (modulepath, functionname), level="debug", interpret=False)
+  if args.debug is True:
+    ttyio.echo("runcallback.160: modulepath=%r funcname=%r" % (modulepath, funcname), level="debug")
 
-  rc = None
-  if modulepath is not None:
+  if modulepath is None:
     try:
-        m = importlib.import_module(modulepath)
-    except ModuleNotFoundError:
-        ttyio.echo("runcallback.180: %s module not found" % (modulepath), level="error")
-    else:
-        ttyio.echo("runcallback.200: m=%r" % (m), level="debug")
-        func = getattr(m, functionname)
-        ttyio.echo("runcallback.220: func=%r" % (func), level="debug")
-        if callable(func) is True:
-            rc = func(args, **kwargs)
-  else:
-    ttyio.echo("runcallback.240: functionname=%r" % (functionname), level="debug")
-    try:
-      func = eval(functionname)
+      func = eval(funcname)
       ttyio.echo("runcallback.320: func=%r" % (func))
     except NameError:
-      ttyio.echo("runcallback.320: %r not found." % (functionname), level="error")
-      return False
+      ttyio.echo("runcallback.340: %r not found." % (funcname), level="error")
+      return None
 
     if callable(func) is True:
-      ttyio.echo("runcallback.260: callable", level="debug")
-      rc = func(args, **kwargs)
+      if args.debug is True:
+        ttyio.echo("runcallback.260: callable", level="debug")
+      return func(args, **kwargs)
     else:
-      ttyio.echo("runcallback.280: not callable", level="debug")
-      rc = False
+      if args.debug is True:
+        ttyio.echo("runcallback.280: not callable", level="debug")
+      return None
 
-  ttyio.echo("runcallback.300: callback completed", level="debug")
-  return rc
+  try:
+      m = importlib.import_module(modulepath)
+  except ModuleNotFoundError:
+      ttyio.echo("runcallback.180: module %s not found" % (modulepath), level="error")
+      return None
+
+  if args.debug is True:
+    ttyio.echo("runcallback.200: m=%r funcname=%r" % (m, funcname), level="debug")
+
+  try:
+    func = getattr(m, funcname)
+  except AttributeError:
+    ttyio.echo("runcallback.240: function %s.%s() not found" % (modulepath, funcname))
+    return None
+  else:
+    if args.debug is True:
+      ttyio.echo("runcallback.220: func=%r" % (func), level="debug")
+    if callable(func) is True:
+      return func(args, **kwargs)
+
+  return None
 
 def inputpassword(prompt:str="password: ", mask="X"):
   buf = ""
@@ -1573,7 +1591,7 @@ def setarea(left, right=None, stack=True):
 #  ttyio.echo("r=%r rightbuf=%r" % (r, rightbuf), interpret=False)
 
 #  buf = "%s%s" % (ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
-  buf = " %s%s " % (leftbuf.ljust(terminalwidth-len(r)), rightbuf) 
+  buf = "-%s%s-" % (leftbuf.ljust(terminalwidth-len(r)), rightbuf) 
   #ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
   updatebottombar("{var:engine.areacolor}%s{/all}" % (buf))
   if stack is True:
@@ -1583,17 +1601,20 @@ def setarea(left, right=None, stack=True):
 def poparea():
   global areastack
 
-#  ttyio.echo("poparea.120: areastack=%r" % (areastack), interpret=False)
-  if len(areastack) < 1:
+#  ttyio.echo("poparea.120: areastack=%r" % (areastack), level="debug") # interpret=False)
+  if len(areastack) == 0:
     return
 
   terminalwidth = ttyio.getterminalwidth()
 
-  areastack.pop()
   if len(areastack) > 0:
-    buf = areastack[-1]
-    updatebottombar("{var:engine.areacolor} %s {/all}" % (buf.ljust(terminalwidth-2, " ")))
-#    updatebottombar("{var:engine.areacolor} %s {/all}" % (ttyio.ljust(buf, terminalwidth-2, " ")))
+    buf = areastack.pop()
+#    ttyio.echo("poparea.140: buf=%r" % (buf), level="debug")
+#    buf = areastack[-1]
+    if buf != "":
+      updatebottombar("{var:engine.areacolor}%s{/all}" % (buf.ljust(terminalwidth-2, " ")))
+#    areastack.pop()
+
   return
 
 # @since 20201013
@@ -1638,3 +1659,9 @@ class genericInputCompleter(object):
       self.matches = self.getmatches(text)
 
     return self.matches[state]
+# @since 20220509
+def buildargcommon(parents=[]):
+    argparser = argparse.ArgumentParser("common", parents=parents, add_help=False)
+    argparser.add_argument("--verbose", action="store_true", dest="verbose")
+    argparser.add_argument("--debug", action="store_true", dest="debug")
+    return argparser
