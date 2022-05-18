@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from distutils.core import setup
 #from setuptools import setup
@@ -13,8 +13,9 @@ setup(
   version=v,
   author="zoidtechnologies.com",
   author_email="%s@projects.zoidtechnologies.com" % (projectname),
-  py_modules=["bbsengine5", "bbs", "engine"],
-  scripts=["bbs", "engine"],
+  license="GPLv3",
+  py_modules=["bbsengine5", "engine"],
+  scripts=["engine"],
   requires=["ttyio5", "getdate"],
   url="http://bbsengine.org/",
   classifiers=[
@@ -25,5 +26,7 @@ setup(
     "Operating System :: POSIX",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Terminals",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+
   ],
 )
