@@ -28,7 +28,7 @@ def checkeros(args, memberid:int=None) -> bool:
   if memberid is None:
     memberid = getcurrentmemberid(args)
 
-  if checkmemberflag(args, "EROS", memberid) and args.eros is True:
+  if checkflag(args, "EROS", memberid) is True and args.eros is True:
     return True
   return False
 
@@ -37,7 +37,7 @@ def checkmagic(args, memberid:int=None) -> bool:
   if memberid is None:
     memberid = getcurrentmemberid(args)
 
-  if checkmemberflag(args, "MAGIC", memberid):
+  if checkflag(args, "MAGIC", memberid):
     return True
   return False
 
@@ -227,7 +227,12 @@ class inputcompleter(object):
     
     return None
 
-def inputprimarykey(dbh, args:argparse.Namespace, table, primarykey, prompt, default, completer=None, verify=None, noneok=False, multi=False, delims=None):
+def verifyprimarykey(args, table, primarykey, value):
+  ttyio.echo("call to zoidbo.primarykey()", level="debug")
+  bbsengine.verifyprimarykey(args, table, primarykey, value)
+  return
+
+def inputprimarykey(args:argparse.Namespace, table, primarykey, prompt, default, completer=None, verify=None, noneok=False, multi=False, delims=None):
   if completer is None:
     completer = inputcompleter(dbh, args, table, primarykey, prompt=prompt)
     ttyio.echo("completer is None", level="debug")
@@ -244,7 +249,7 @@ def inputprimarykey(dbh, args:argparse.Namespace, table, primarykey, prompt, def
   # ttyio.echo("checking completer... %r" % (type(completer)), level="debug")
   if callable(completer) is True:
     # ttyio.echo("inputprimarykey.100: parse and bind", level="debug")
-    c = completer(dbh, args, table, primarykey)
+    c = completer(args, table, primarykey)
     readline.parse_and_bind("tab: complete")
     readline.set_completer(c.completer)
     ttyio.echo("completer set", level="debug")
@@ -288,7 +293,10 @@ def _databaseconnect(**kw):
   dsn = make_dsn(**kw)
   if dsn in databasehandles:
     dbh = databasehandles[dsn]
-    return databasehandles[dsn]
+    if dbh.closed == 0:
+      return databasehandles[dsn]
+#    else:
+#      ttyio.echo("dbh handle closed")
 
   dbh = psycopg2.connect(connection_factory=psycopg2.extras.DictConnection, cursor_factory=psycopg2.extras.RealDictCursor, **kw)
   databasehandles[dsn] = dbh
@@ -1665,3 +1673,40 @@ def buildargcommon(parents=[]):
     argparser.add_argument("--verbose", action="store_true", dest="verbose")
     argparser.add_argument("--debug", action="store_true", dest="debug")
     return argparser
+
+def verifyfloat(args, buf):
+  ttyio.echo("verifyfloat.100: buf=%s" % (buf), level="debug")
+  res = False
+  try:
+    res = float(buf)
+  except ValueError:
+    ttyio.echo("value error converting to float", level="debug")
+    res = False
+  else:
+    res = True
+
+  ttyio.echo("verifyfloat.1110: res=%s" % (res))
+  return res
+
+def inputfloat(args, prompt, default=None, strip=None, verify=verifyfloat, noneok=True):
+  while True:
+    buf = ttyio.inputstring(prompt, default, noneok=noneok)
+    ttyio.echo("inputfloat.14: buf=%r strip=%r" % (buf, strip), level="debug")
+    if strip is not None:
+      buf = buf.strip(strip)
+      ttyio.echo("stripped. strip=%r" % (strip), level="debug")
+    ttyio.echo("inputfloat.12: buf=%r" % (buf), level="debug")
+    if buf == "" or buf is None:
+      if noneok is True:
+        res = None
+        break
+      else:
+        res = default
+        break
+    elif callable(verify) is True:
+      if verify(args, buf) is True:
+        res = float(buf)
+        break
+  # if opts.debug is True:
+  ttyio.echo("inputfloat.10: res=%r" % (res), level="debug")
+  return res
