@@ -41,6 +41,15 @@ def checkmagic(args, memberid:int=None) -> bool:
     return True
   return False
 
+# @since 20220609
+def checksysop(args, memberid:int=None) -> bool:
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
+  if checkflag(args, "SYSOP", memberid) is True:
+    return True
+  return False
+
 class Node(object):
   def __init__(self, prg="node", table=""):
     self.prg = prg
@@ -850,9 +859,9 @@ def implodesigpaths(siglist):
   pass
 
 class Form(object):
-  def __init__(self, t, i, args=None):
-    self.items = i
-    self.title = t
+  def __init__(self, title, items, args=None):
+    self.items = items
+    self.title = title
     self.args = args
   def __len__(self):
     return len(self.items)
@@ -879,13 +888,13 @@ class Menu(object):
     self.area = area
 
   # @see https://stackoverflow.com/questions/11469025/how-to-implement-a-subscriptable-class-in-python-subscriptable-class-not-subsc
-  def __getitem__(self, i):
+  def __getitem__(self, i:int) -> dict:
     return self.items[i]
 
-  def __len__(self):
+  def __len__(self) -> int:
     return len(self.items)
 
-  def find(self, name):
+  def find(self, name:str) -> bool:
     for m in self.items:
       if "name" in m and name == m["name"]:
         return m
@@ -893,7 +902,7 @@ class Menu(object):
       return None
     return False
 
-  def resolverequires(self, menuitem):
+  def resolverequires(self, menuitem) -> bool:
 #    ttyio.echo("Menu.resolverequires.160: menuitem=%r" % (menuitem), interpret=False)
     if menuitem is None:
       # ttyio.echo("Menu.resolverequires.180: menuitem is None.")
@@ -943,7 +952,8 @@ class Menu(object):
               maxlen = l
 #    ttyio.echo("menuitemresults=%r" % (menuitemresults), interpret=False)
 
-    ttyio.echo("{f6} {var:engine.menu.cursorcolor}{var:engine.menu.color}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+#    ttyio.echo("{f6} {var:engine.menu.cursorcolor}{var:engine.menu.color}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
+    ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color}%s{/all}" % (" "*(terminalwidth-2)), wordwrap=False)
     if self.title is None or self.title == "":
       ttyio.echo(" {var:engine.menu.cursorcolor}{var:engine.menu.color} {var:engine.menu.boxcharcolor}{acs:ulcorner}{acs:hline:%d}{var:engine.menu.boxcharcolor}{acs:urcorner}{var:engine.menu.color}  {/all}" % (terminalwidth - 7), wordwrap=False)
     else:
@@ -1334,10 +1344,10 @@ def diceroll(sides:int=6, count:int=1, mode:str="single"):
 
 # @since 20210222
 def initscreen(topmargin=0, bottommargin=0):
-  ttyio.echo("{f6:3}{curpos:%d,0}" % (ttyio.getterminalheight()-(bottommargin+1)))
   terminalheight = ttyio.getterminalheight()
-  # ttyio.echo("initscreen.100: terminalheight=%r" % (terminalheight))
   ttyio.echo("{decsc}{decstbm:%d,%d}{decrc}" % (topmargin, terminalheight-bottommargin))
+  return
+
 
 # @since 20210129
 def inittopbar(height:int=1):
@@ -1502,9 +1512,10 @@ def runcallback(args:object, callback, **kwargs): # s:argparse.Namespace, callba
 
   return None
 
-def inputpassword(prompt:str="password: ", mask="X"):
+def inputpassword(prompt:str="password: ", mask="X") -> str:
   buf = ""
   done = False
+  ttyio.echo(prompt, end="", flush=True)
   while not done:
     ch = ttyio.getch()
 #    ttyio.echo("ch=%r" % (ch))
@@ -1557,8 +1568,8 @@ def collapselist(lst):
 
 # @since 20211101
 # @see https://code.activestate.com/recipes/137270-use-generators-for-fetching-large-db-record-sets/
-def ResultIter(cursor, arraysize=1000, filterfunc=None, **kw):
-    'An iterator that uses fetchmany to keep memory usage down'
+def resultiter(cursor, arraysize=1000, filterfunc=None, **kw):
+    'An iterator accepts a psycopg2 cursor to keep memory usage down'
     while True:
         results = cursor.fetchmany(arraysize)
         if not results:
@@ -1571,7 +1582,7 @@ def ResultIter(cursor, arraysize=1000, filterfunc=None, **kw):
 
 areastack = []
 
-def setarea(left, right=None, stack=True):
+def setarea(left, right=None, stack=False):
   global areastack
 
   terminalwidth = ttyio.getterminalwidth()-2
@@ -1599,7 +1610,7 @@ def setarea(left, right=None, stack=True):
 #  ttyio.echo("r=%r rightbuf=%r" % (r, rightbuf), interpret=False)
 
 #  buf = "%s%s" % (ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
-  buf = "-%s%s-" % (leftbuf.ljust(terminalwidth-len(r)), rightbuf) 
+  buf = " %s%s " % (leftbuf.ljust(terminalwidth-len(r)), rightbuf)
   #ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
   updatebottombar("{var:engine.areacolor}%s{/all}" % (buf))
   if stack is True:
