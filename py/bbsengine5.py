@@ -5,6 +5,7 @@ from __future__ import generators    # needs to be at the top of your module
 #
 
 import re, os, sys, pwd, time, random
+import importlib.resources as resource
 
 import psycopg2, psycopg2.extras
 from psycopg2.extras import Json
@@ -876,12 +877,30 @@ class MenuItem(object):
     self.status = None
     self.description = None
     self.key = None
+    self.name = None
+    self.enabled = False
 
   def display(self):
     pass
 
+class MenuItemCheckbox(MenuItem):
+  def __init__(self):
+    super().__init__()
+    self.type = "CHECKBOX"
+
+class MenuItemRadioButton(MenuItem):
+  def __init__(self):
+    super().__init__()
+    self.type = "RADIO"
+    self.value = None
+
+class MenuItemTextbox(MenuItem):
+  def __init__(self):
+    super().__init__()
+    self.type = "TEXT"
+
 class Menu(object):
-  def __init__(self, t, i, args=None, area=""):
+  def __init__(self, title:str, items, args=None, area:str=""):
     self.title = t
     self.items = i
     self.args = args
@@ -1150,7 +1169,7 @@ class Menu(object):
     return None
 
 # @since 20200819
-def getmembercredits(args:argparse.Namespace, memberid:int=None) -> int:
+def getmembercredits(args:argparse.Namespace, memberid:int) -> int:
   dbh = databaseconnect(args)
   sql = "select credits from engine.member where id=%s" 
   dat = (memberid,)
@@ -1221,21 +1240,21 @@ def getmemberbyid(dbh:object, memberid:int, fields="*") -> dict:
   cur.close()
   return res
 
-def pluralize(amount:int, singular:str, plural:str, quantity=True) -> str:
+def pluralize(amount:int, singular:str, plural:str, quantity=True, emoji:str="") -> str:
   if amount is None or amount == 0:
     if quantity is True:
-      return "no %s" % (plural)
+      return "no %s%s" % (emoji, plural)
     return plural
 
   if quantity is True:
     if amount == 1:
-      return "%s %s" % (amount, singular)
+      return "%s %s%s" % (amount, emoji, singular)
     buf = "{:n}".format(amount)
-    return "%s %s" % (buf, plural)
+    return "%s %s%s" % (buf, emoji, plural)
   if amount == 1:
-    return singular
+    return "%s%s" % (emoji, singular)
   else:
-    return plural
+    return "%s%s" % (emoji, plural)
 
 def startsession():
   pass
@@ -1243,18 +1262,7 @@ def startsession():
 def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
   if width is None:
     width = ttyio.getterminalwidth()
-  buf = color+"{acs:hline:%d}{/all}" % (width-1)
-  return buf
-  
-  charslen = len(chars)
-  hr = " "*1 # charslen
-
-  if color != "":
-    hr += color
-  hr += chars*((width//charslen)-charslen)
-#    if color != "":
-#        hr += "{/%s}" % (color)
-  return hr
+  return "{/all}%s{acs:hline:%d}{/all}" % (color, width)
 
 # titlecolor = "{reverse}"
 # hrcolor = ""
@@ -1446,7 +1454,7 @@ def inputfilename(args: argparse.Namespace, prompt, default, verify=verifyFileEx
     os.chdir(dirname)
   return ttyio.inputstring(prompt, default, verify=verify, **kw)
 
-def runcallback(args:object, callback, **kwargs): # s:argparse.Namespace, callback, argparser=None, **kwargs):
+def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.Namespace, callback, argparser=None, **kwargs):
   if args.debug is True:
     ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), level="debug")# interpret=False)
 #  if argparser is not None:
@@ -1502,7 +1510,7 @@ def runcallback(args:object, callback, **kwargs): # s:argparse.Namespace, callba
   try:
     func = getattr(m, funcname)
   except AttributeError:
-    ttyio.echo("runcallback.240: function %s.%s() not found" % (modulepath, funcname))
+#    ttyio.echo("runcallback.240: function %s.%s() not found" % (modulepath, funcname))
     return None
   else:
     if args.debug is True:
@@ -1606,13 +1614,15 @@ def setarea(left, right=None, stack=False):
     ttyio.echo("setarea.100: type(right)=%r" % (right), level="debug")
     rightbuf = "ERROR" # type(right)
   r = ttyio.interpretmci(rightbuf, strip=True)
+  t = terminalwidth - len(r) - 4
+  leftbuf = leftbuf[:t] + (leftbuf[t:] and '...')
 
 #  ttyio.echo("r=%r rightbuf=%r" % (r, rightbuf), interpret=False)
 
 #  buf = "%s%s" % (ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
   buf = " %s%s " % (leftbuf.ljust(terminalwidth-len(r)), rightbuf)
   #ttyio.ljust(leftbuf, terminalwidth-len(r)), rightbuf) # leftbuf.ljust(terminalwidth-len(r), " "), rightbuf)
-  updatebottombar("{var:engine.areacolor}%s{/all}" % (buf))
+  updatebottombar("{var:areacolor}%s{/all}" % (buf))
   if stack is True:
     areastack.append(buf)
   return
@@ -1631,7 +1641,7 @@ def poparea():
 #    ttyio.echo("poparea.140: buf=%r" % (buf), level="debug")
 #    buf = areastack[-1]
     if buf != "":
-      updatebottombar("{var:engine.areacolor}%s{/all}" % (buf.ljust(terminalwidth-2, " ")))
+      updatebottombar("{var:areacolor}%s{/all}" % (buf.ljust(terminalwidth-2, " ")))
 #    areastack.pop()
 
   return
@@ -1720,4 +1730,65 @@ def inputfloat(args, prompt, default=None, strip=None, verify=verifyfloat, noneo
         break
   # if opts.debug is True:
   ttyio.echo("inputfloat.10: res=%r" % (res), level="debug")
+  return res
+
+# @since 20220724
+# @see https://stackoverflow.com/a/66950540
+def buildfilepath(*args) -> str:
+  q = []
+  for a in args:
+#    ttyio.echo("buildfilepath.100: a=%r" % (a), level="debug")
+    p = os.path.relpath(os.path.normpath(os.path.join("/", a)), "/")
+    p = os.path.expandvars(p)
+    p = os.path.expanduser(p)
+    q.append(p)
+  return "/".join(q)
+
+# @since 20220718
+def filedisplay(args, filename, more=True, width=None) -> None:
+  def process(f):
+    row = 1
+    for line in f:
+      line = line.replace("\n", "{f6}")
+      if more is True:
+        row += ttyio.interpretmci(line, width=width).count("\n")
+        if row >= height-2:
+          ch = ttyio.inputboolean("{curpos:%d,1}{eraseline}{var:promptcolor}more? [{var:currentoptioncolor}Y{var:optioncolor}n{var:promptcolor}]: {var:inputcolor}" % (height), "Y")
+          ttyio.echo("{cursorup}{eraseline}{/all}", end="")
+          if ch is False:
+            break
+          else:
+            row = 1
+      ttyio.echo(line, wordwrap=True, end="", width=width)
+
+#  ttyio.echo("filename=%r" % (filename), level="debug")
+  if width is None:
+    width = ttyio.getterminalwidth()
+
+  height = ttyio.getterminalheight()-1
+#  ttyio.echo("height=%r" % (height), level="debug")
+#  return
+#  ttyio.echo("{home}{decsc}{curpos:%d,1}{erasedisplay:totop}{decrc}" % (height))
+
+  if type(filename) == str:
+    with open(filename) as f:
+      process(f)
+  else:
+    with filename as f:
+      process(f)
+
+  ttyio.inputchar("{curpos:%d,1}{eraseline}{var:promptcolor}press enter key to end: {var:inputcolor}" % (height), "", noneok=True)
+  ttyio.echo("{cursorhpos:1}{eraseline}{/all}")
+
+# @since 20220727
+def runsubmodule(args, submodule, **kwargs):
+  sm = submodule + ".init"
+  if args.debug is True:
+    ttyio.echo("sm=%r" % (sm), level="debug")
+  res = runcallback(args, sm, **kwargs)
+  if args.debug is True:
+    ttyio.echo("%s.init() result=%r" % (submodule, res), level="debug")
+  res = runcallback(args, submodule+".main", **kwargs)
+  if args.debug is True:
+    ttyio.echo("%s.main() result=%r" % (submodule, res), level="debug")
   return res
