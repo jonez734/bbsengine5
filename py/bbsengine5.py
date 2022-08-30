@@ -4,7 +4,7 @@ from __future__ import generators    # needs to be at the top of your module
 # Copyright (C) 2008-2021 zoidtechnologies.com. All Rights Reserved.
 #
 
-import re, os, sys, pwd, time, random
+import re, os, sys, pwd, time, random, pathlib
 import importlib.resources as resource
 
 import psycopg2, psycopg2.extras
@@ -13,7 +13,7 @@ from psycopg2.extensions import parse_dsn, make_dsn
 
 from datetime import datetime, timedelta, tzinfo
 
-from syslog import *
+import syslog
 
 import argparse
 # from argparse import Namespace
@@ -559,7 +559,7 @@ def getsignamefromid(dbh, id):
     return res["name"]
   return None
 
-def update(dbh, table, key, values:dict, primarykey="id"):
+def update(dbh, table, key, values:dict, primarykey="id", mogrify=False):
   ttyio.echo("bbsengine5.update.100: values=%r" % (values), level="debug") # interpret=False)
   if primarykey in values:
     del values[primarykey]
@@ -577,6 +577,10 @@ def update(dbh, table, key, values:dict, primarykey="id"):
 
   cur = dbh.cursor()
   ret = cur.execute(sql, dat)
+
+  if mogrify is True:
+    ttyio.echo(cur.mogrify(sql, dat), level="debug")
+
   cur.close()
   return ret
 
@@ -598,10 +602,11 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
     sql += " returning %s.%s" % (table, primarykey)
   # ttyio.echo("bbsengine.insert.100: sql=%s dat=%s" % (sql, dat), level="debug")
   cur = dbh.cursor()
+
   if mogrify is True:
-    print("bbsengine5.insert.mogrify.100: dat=%r" % (dat))
+    ttyio.echo("bbsengine5.insert.100: %r" % (cur.mogrify(sql, dat)), level="debug")
+
 #      ttyio.echo(cur.mogrify(sql, [tuple(v.values() for v in dat)]), level="debug")
-    ttyio.echo(cur.mogrify(sql, dat), level="debug")
   cur.execute(sql, dat)
   if returnid is True:
     res = cur.fetchone()
@@ -618,7 +623,7 @@ def insertnode(dbh, args:argparse.Namespace, node:dict, table:str="engine.__node
     ttyio.echo("bbsengine.insertnode.100: node=%r table=%r" % (node, table), level="debug")
   return insert(dbh, table, node, returnid=returnid, primarykey=primarykey, mogrify=mogrify)
 
-def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths, completerdelims=", "):
+def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths, completerdelims=", ", mogrify:bool=False):
   if sigpaths is None or len(sigpaths) == 0:
     return None
 
@@ -633,15 +638,18 @@ def updatenodesigs(dbh, args:argparse.Namespace, nodeid:int, sigpaths, completer
   cur = dbh.cursor()
   sql = "delete from engine.map_node_sig where nodeid=%s"
   dat = (nodeid,)
+  if mogrify is True:
+    ttyio.echo(cur.mogrify(sql, dat), level="debug")
+
   cur.execute(sql, dat)
   for sigpath in sigpaths:
     ttyio.echo("bbsengine5.updatenodesigs.100: sigpath=%r" % (sigpath))
     sigmap = { "nodeid": nodeid, "sigpath": sigpath }
-    insert(dbh, "engine.map_node_sig", sigmap, returnid=False, mogrify=False)
+    insert(dbh, "engine.map_node_sig", sigmap, returnid=False, mogrify=mogrify)
 #  dbh.commit()
   return None
 
-def updatenodeattributes(dbh, args:argparse.Namespace, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node"):
+def updatenodeattributes(dbh, args:argparse.Namespace, nodeid:int, attributes:dict, reset:bool=False, table:str="engine.__node", mogrify:bool=False):
   if reset is False:
     sql = "update %s set attributes=attributes||%%s where id=%s" % (table, nodeid)
   else:
@@ -654,24 +662,28 @@ def updatenodeattributes(dbh, args:argparse.Namespace, nodeid:int, attributes:di
   if args.debug is True:
     ttyio.echo("bbsengine5.updatenodeattributes.100: dat=%r" % (dat), level="debug")
   cur = dbh.cursor()
-  if args.debug is True:
+  if mogrify is True:
     ttyio.echo("updatenodeattributes.100: %r" % (cur.mogrify(sql, dat)), level="debug")
   return cur.execute(sql, dat)
 
-def updatenode(dbh, args:argparse.Namespace, id:int, node:dict, reset=False):
+def updatenode(dbh, args:argparse.Namespace, id:int, node:dict, reset=False, mogrify=False):
   node["dateupdated"] = "now()"
   node["updatedbyid"] = getcurrentmemberid(args)
   attr = node["attributes"] if "attributes" in node else {}
   if len(attr) > 0:
-    updatenodeattributes(dbh, args, id, attr, reset=reset)
+    updatenodeattributes(dbh, args, id, attr, reset=reset, mogrify=mogrify)
     del node["attributes"]
-  return update(dbh, "engine.__node", id, node)
+  return update(dbh, "engine.__node", id, node, mogrify=mogrify)
 
-def setflag(dbh, memberid, flag, value):
+def setflag(dbh, memberid, flag, value, mogrify=False):
   logentry("setflag(%d, '%s', %s)" % (memberid, flag, value))
   sql = "delete from engine.map_member_flag where memberid=%s and name=%s"
   dat = (memberid, flag)
   cur = dbh.cursor()
+
+  if mogrify is True:
+    ttyio.echo(cur.mogrify(sql, dat), level="debug")
+
   cur.execute(sql, dat)
   cur.close()
 
@@ -700,6 +712,8 @@ where flag.name=%s
   
   cur = dbh.cursor()
   cur.execute(sql, dat)
+  if cur.rowcount == 0:
+    return None
   res = cur.fetchall()
   cur.close()
 #  print "getflag.0: %r" % (type(res))
@@ -732,7 +746,7 @@ def checkflag(args:argparse.Namespace, flag:str, memberid:int=None):
     return None
   return res["value"]
 
-def logentry(message, output=True, level=None, priority=LOG_INFO, stripcommands=False, datestamp=True):
+def logentry(message, output=True, level=None, priority=syslog.LOG_INFO, stripcommands=False, datestamp=True):
   if level is not None:
     if level == "debug":
       message = "{blue}** debug ** "+message+"{/all}"
@@ -901,8 +915,8 @@ class MenuItemTextbox(MenuItem):
 
 class Menu(object):
   def __init__(self, title:str, items, args=None, area:str=""):
-    self.title = t
-    self.items = i
+    self.title = title
+    self.items = items
     self.args = args
     self.area = area
 
@@ -1248,13 +1262,13 @@ def pluralize(amount:int, singular:str, plural:str, quantity=True, emoji:str="")
 
   if quantity is True:
     if amount == 1:
-      return "%s %s%s" % (amount, emoji, singular)
+      return "%s%s %s" % (emoji, amount, singular)
     buf = "{:n}".format(amount)
-    return "%s %s%s" % (buf, emoji, plural)
+    return "%s%s %s" % (emoji, buf, plural)
   if amount == 1:
-    return "%s%s" % (emoji, singular)
+    return "%s %s" % (emoji, singular)
   else:
-    return "%s%s" % (emoji, plural)
+    return "%s %s" % (emoji, plural)
 
 def startsession():
   pass
@@ -1770,25 +1784,99 @@ def filedisplay(args, filename, more=True, width=None) -> None:
 #  return
 #  ttyio.echo("{home}{decsc}{curpos:%d,1}{erasedisplay:totop}{decrc}" % (height))
 
-  if type(filename) == str:
-    with open(filename) as f:
+  ttyio.echo("filedisplay.100: filename=%r type=%r" % (filename, type(filename)), level="debug")
+  if type(filename) == str or type(filename) == pathlib.PosixPath:
+    with open(str(filename)) as f:
       process(f)
   else:
     with filename as f:
-      process(f)
+      process(filename)
 
   ttyio.inputchar("{curpos:%d,1}{eraseline}{var:promptcolor}press enter key to end: {var:inputcolor}" % (height), "", noneok=True)
   ttyio.echo("{cursorhpos:1}{eraseline}{/all}")
 
+# @since 20220826
+def checkmodule(args, module, op="run", buildargs=False, **kw):
+  try:
+    m = importlib.import_module(module)
+  except Exception as e:
+    if args.debug is True:
+      ttyio.echo(repr(e), level="error")
+    return False
+
+  ttyio.echo("m=%r" % (m), level="debug")
+
+  # required
+  if (hasattr(m, "init") and callable(m.init)) is False:
+    if args.debug is True:
+      ttyio.echo("no init function", level="warn")
+    return False
+
+  # optional
+  if hasattr(m, "access") is False:
+    if args.debug is True:
+      ttyio.echo("no access function, returning True anyway")
+    return True
+  if (hasattr(m, "access") and callable(m.access)) is False:
+    if args.debug is True:
+      ttyio.echo("no access function", level="debug")
+    return False
+
+  if m.access(args, op) is True:
+    if args.debug is True:
+      ttyio.echo("access check passed", level="debug")
+  else:
+    ttyio.echo("access check failed", level="error")
+    return False
+
+  if (hasattr(m, "buildargs") and callable(m.buildargs)) is False:
+    if args.debug is True:
+      ttyio.echo("no buildargs function", level="debug")
+    if buildargs is True:
+      return False
+
+  # required
+  if (hasattr(m, "main") and callable(m.main)) is False:
+    ttyio.echo("no main function", level="error")
+    return False
+
+  return True
+
 # @since 20220727
-def runsubmodule(args, submodule, **kwargs):
-  sm = submodule + ".init"
+def runmodule(args, module, **kwargs):
+  buildargs = kwargs["buildargs"] if "buildargs" in kwargs else True
+  if checkmodule(args, module, buildargs=buildargs) is False:
+    ttyio.echo("permission denied", level="error")
+    return False
+
+  res = runcallback(args, module + ".init", **kwargs)
   if args.debug is True:
-    ttyio.echo("sm=%r" % (sm), level="debug")
-  res = runcallback(args, sm, **kwargs)
+    ttyio.echo("%s.init() result=%r" % (module, res), level="debug")
+
+  if buildargs is True:
+    argv = kwargs["argv"] if "argv" in kwargs else []
+    prgargparser = runcallback(args, module + ".buildargs", **kwargs)
+    if prgargparser is not None:
+      try:
+        prgargs = prgargparser.parse_args(argv[1:])
+      except SystemExit:
+        return
+      except argparse.ArgumentError:
+        ttyio.echo("argument error", level="error")
+        return
+
+      if args.debug is True:
+        ttyio.echo("bbsengine.runmodule.220: prgargs=%r" % (prgargs), level="debug")
+
+      res = runcallback(prgargs, module + ".main", **kwargs)
+  else:
+    res = runcallback(args, module+".main", **kwargs)
+
   if args.debug is True:
-    ttyio.echo("%s.init() result=%r" % (submodule, res), level="debug")
-  res = runcallback(args, submodule+".main", **kwargs)
-  if args.debug is True:
-    ttyio.echo("%s.main() result=%r" % (submodule, res), level="debug")
+    ttyio.echo("%s.main() result=%r" % (module, res), level="debug")
   return res
+
+# @since 20220828
+def runsubmodule(args, module, **kw):
+  print("bbsengine5.runsubmodule")
+  return runmodule(args, module, buildargs=False, **kw)
