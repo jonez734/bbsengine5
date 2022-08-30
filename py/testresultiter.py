@@ -52,7 +52,8 @@ def main():
       ttyio.echo("{f6}* no matches *{f6}")
     else:
     #    for rec in cur.fetchall():
-      for rec in ResultIter(cur, arraysize=10, filterfunc=filterfunc):
+      ttyio.echo("cur=%r" % (cur), level="debug")
+      for rec in bbsengine.ResultIter(cur, arraysize=10, filterfunc=filterfunc):
 #          print(rec)
           ttyio.echo("%s from \"%s\" (%s) #%s" % (rec["query"].strip(), rec["description"].strip(), bbsengine.datestamp(rec["dateentered"]), rec["projectid"]))
     cur.close()

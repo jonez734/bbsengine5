@@ -1,6 +1,7 @@
 import argparse
 import bbsengine5 as bbsengine
 from bbsengine5 import runcallback
+import importedmodule
 
 def member(args, **kwargs):
     print("inside member")
@@ -21,7 +22,7 @@ def main():
     args = parser.parse_args()
     # ttyio.echo("args=%r" % (args), level="debug")
 
-    runcallback(args, member)
+    print(bbsengine.runcallback(args, "member"))
 
 if __name__ == "__main__":
     main()
