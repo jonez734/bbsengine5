@@ -70,54 +70,6 @@
     * LocalTimezone - not used anywhere in bbsengine5
     * datestamp() does not handle timezones correctly (@since 20211216)
       - does not show empyre.newsentrys with timezone, even tho it is stored correctly (@since 20211216)
-- shell
-    * [ ] turn off tab-complete after a command has been entered. remove delims? (@since 20211211)
-    * [ ] confirm no bash chars can be entered at the bbs prompt (@since 20211211) @security
-    * [x] handle setarea() correctly (@since 20211211) (@done 20211214)
-    * [ ] somehow remove requirement of bbsengine.initscreen() at each run through the while loop (@since 20211214)
-    * [ ] import given module, call main(). does this keep it runnable from a shell (tcsh) prompt? (@since 20211214)
-    * [ ] in 'socrates.addpost', how to call main() (aka initscreen()) if needed (@since 20211214)
-    * [ ] if callback is 'socrates', import module and call socrates.main() (@since 20211214)
-    * [ ] if callback is 'socrates.addpost', import module and call 'addpost' (@since 20211214)
-    * [ ] in __main__, be sure to initscreen() (@since 20211214)
-    * [ ] use 'cmd2' (@since 20220130)
-       * [ ] cmd2 uses 'poutput' with very similar function to ttyio.echo()
-    * [ ] change-sig in shell (@since 20220130)
-    * https://github.com/python-cmd2/cmd2/issues/194
-    * if point and buffer len are the same, increment idle timer
-    * https://stackoverflow.com/questions/301134/how-to-import-a-module-given-its-name-as-string?rq=1
-    * https://stackoverflow.com/questions/7719466/i-have-a-string-whose-content-is-a-function-name-how-to-refer-to-the-correspond
-    * https://www.google.com/search?q=cmd2+disable+built-in+alias&oq=cmd2+disable+built-in+alias&aqs=chrome..69i57.10208j0j7&sourceid=chrome&ie=UTF-8
-    * environment vars:
-       * START: room where a member appears after login (@since 20220306)
-       * HOME: the room where 'home' command takes you (@since 20220306)
-       * TITLE, MOUT, MIN, MMOUT, MMIN, MDEST, MCLONE, MVIS, and MINVIS
-    * update PYTHONPATH based on member.flags (wiz, dead, etc)
-    * static command tables need a way to check access, do not show commands a member does not have access to ("engine", etc)
-    * try to import cmd_<command> file based on PYTHONPATH
-    * check for callable cmd_foo.cmd_foo()
-    * check current environment for the command
-      * exits
-    * present(), environment(), exits()
-    * store engine.member.env(ironment) instead of 'currentroom'
-    * __init__()
-    * reset()
-    * handle commands. search for _*.py
-    * [ ] generic object
-      * set/get attributes. (@since 20220331)
-      * id()
-      * move()
-      * remove()
-      * clean_up()
-      * receive_object()
-      * release_object()
-      * check_light()
-    * [ ] room object
-      * query_exit_dirs()
-      * id()
-      * reset()
-      * query_ambient_light() calls weather_d
-      * receive_objects() returns 1
 
 - editor
     * figure out a way to run a restricted 'gedit' (@since 20220210)
@@ -223,9 +175,6 @@ NameError: name 'main' is not defined
     * see sampic
 - [ ] port bbsengine4 sigcompleter and verifysigpath() re: top.eros.* (@since 20220122)
 
-== facebook integration ==
-===
-
 - [ ] javascript-based facebook login (@since 20220108)
 - https://developers.facebook.com/docs/facebook-login/manually-build-a-login-flow
 
@@ -235,7 +184,6 @@ NameError: name 'main' is not defined
 - [ ] map between current version and (zoidweb4,...) (@since 20220121)
     * versions seq, has "zoidweb4", "zoidweb5", etc keys w proper values
     * seamless integration w vulcan and sophia
-
 - [ ] address issue of :emoji: in bbsengine.title()  (uses centering, which breaks) (@since 20220402)
     * short by 2 bytes per emoji use.... sometimes
     * https://stackoverflow.com/questions/30775689/python-length-of-unicode-string-confusion
@@ -248,14 +196,11 @@ NameError: name 'main' is not defined
 - [ ] setarea() (@since 20220302)
     * [x] ljust() - emojis work now (@since 20220302 @done 20220302)
     * [ ] :anchor: is correct, :ballot-box: is not (off by one space) (@since 20220302)
-
-- [ ] move ljust() and center() to ttyio5 (@since 20220303)
-- [ ] be sure to update Menu() re: ttyio.center()
+- [-] --move ljust() and center() to ttyio5-- (@since 20220303)
+- [-] --be sure to update Menu() re: ttyio.center()--
 - [x] inputsig() (specifically bbsengine.verifysig()) does not correctly handle multiple sigs (@since 20220315 @done 20220322)
-- [ ] lpmuds downloads: http://lpmuds.net/downloads.html (@since 20220316)
 - [ ] add attributes (jsonb) to engine.sig
 - [ ] in inputsig(), check 'default' type: list = join(), str = as written, None = empty string (@since 20220318)
-- [ ] mud: commodore pet keyboards are notorious for jamming, double keys, etc. cyberpunk (@since 20220320 pscug)
 - [ ] https://youtu.be/kl6rsi7BEtk (@since 20220320 pscug)
 - [x] verifysigpath() should call buildsiglist() @since 20220321 @done 20220322
 - [x] verifysigpath() should check for top.eros.* access (@since 20220321) (@done 20220322)
@@ -273,9 +218,11 @@ NameError: name 'main' is not defined
 - [x] add 'getdate' to 'requires' list in setup.py for bbsengine5 (required by datestamp()) (@since 20220330) (@done 20220330)
 - [x] fix datestamp() so it accepts a str, and uses getdate.getdate() to handle it (@since 20220330, @done 20220330)
 - [ ] https://restrictedpython.readthedocs.io/en/latest/ -- run untrusted python code in a trusted environment (@since 20220402)
+- [ ] https://stackoverflow.com/questions/17073688/how-to-use-argparse-subparsers-correctly
 
 == mud ==
 
+- [ ] present(), environment(), exits()
 - [ ] living
     * [ ] query_vision() (tmi-2), part of living (@since 20220402)
         * checks to see if object is "blind" or if living has no_vision set
@@ -302,15 +249,37 @@ NameError: name 'main' is not defined
     - wiz
     - ghost
 - in Base, add set() and query() (@since 20220403)
+* [ ] generic object
+  * set/get attributes. (@since 20220331)
+  * id()
+  * move()
+  * remove()
+  * clean_up()
+  * receive_object()
+  * release_object()
+  * check_light()
+* [ ] room object
+  * query_exit_dirs()
+  * id()
+  * reset()
+  * query_ambient_light() calls weather_d
+  * receive_objects() returns 1
+- [ ] lpmuds downloads: http://lpmuds.net/downloads.html (@since 20220316)
+- [ ] mud: commodore pet keyboards are notorious for jamming, double keys, etc. cyberpunk (@since 20220320 pscug)
+- [ ] query_verb()
+- [ ] this_player()?
+- [ ] environment() -> returns 'super' of object arg
+- [ ] inventory()
+- [ ] how does a Base know what room it is in? (@since 20220402)
+- environment vars:
+     * START: room where a member appears after login (@since 20220306)
+     * HOME: the room where 'home' command takes you (@since 20220306)
+     * TITLE, MOUT, MIN, MMOUT, MMIN, MDEST, MCLONE, MVIS, and MINVIS
+     * update PYTHONPATH based on member.flags (wiz, dead, etc)
 
 == bed ==
 
 - [ ] client and bed side for socrates, etc (@since 20220402)
-- [ ] query_verb()
-- [ ] this_player()?
-- [ ] environment() -> returns 'super' of object arg
-- [ ] all_inventory()
-- [ ] how does a Base know what room it is in? (@since 20220402)
 - [ ] inpythonpath() - return true if $PYTHONPATH includes given arg (@since 20220402)
 - [ ] in SHELL, I type a command, $PYTHONPATH is searched for cmd_<verb>.py, imported, and run (@since 20220402)
 - [ ] add mud/ to PYTHONPATH (@since 20220422)
@@ -322,3 +291,48 @@ NameError: name 'main' is not defined
 - https://www-uxsup.csx.cam.ac.uk/pub/doc/suse/sles9/adminguide-sles9/ch20s02.html
 - https://serverfault.com/questions/1056644/sshd-on-fedora-recent-changes-to-usepam-break-existing-security-permitrootpass
 - https://linuxhint.com/linux_pam_tutorial/
+- [OpenSSH with public keys from database](https://serverfault.com/questions/162238/openssh-with-public-keys-from-database)
+- https://www.google.com/search?q=how+do+duplicate+an+existing+service+with+systemd&oq=how+do+duplicate+an+existing+service+with+systemd&aqs=chrome..69i57j33i10i160.7294j0j7&sourceid=chrome&ie=UTF-8
+- https://docs.fedoraproject.org/en-US/quick-docs/understanding-and-administering-systemd/
+- https://stackoverflow.com/questions/38050873/can-two-python-argparse-objects-be-combined (@since 20220427)
+- https://tldp.org/HOWTO/Bash-Prog-Intro-HOWTO-5.html (change bbs to detect host and update --databaseport) (@since 20220427)
+- https://stackoverflow.com/questions/15973184/if-statement-to-check-hostname-in-shell-script (@since 20220427)
+
+- [ ] bbsengine.setarea() has a diff areastack than empyre.setarea() (shell) (@since 20220513)
+- [x] make bbsengine5.databaseconnect() detect if the dbh in the cache is open, possibly reconnect if not (@since 20220526 @done 20220527)
+- [ ] enable database to handle ssh authentications
+    * https://serverfault.com/questions/162238/openssh-with-public-keys-from-database
+    * https://blog.scalesec.com/just-in-time-ssh-provisioning-7b20d9736a07
+- Menu/Form (@since 20220621)
+    * a way to set up a "select one only" menu (radio button)
+    * check boxes (current default, each item has it's own result)
+    * inputbox
+    * FormItem
+    * MenuItem
+    * allow mix of types?
+    * all radiobuttons on a menu are mutually exclusive
+- inputpassword (@since 20220628)
+    * does not handle ctrl keys (^U, ^A, ^E, home, end, etc) (ttyio.getch())
+    * https://github.com/asweigart/pwinput/blob/main/src/pwinput/__init__.py
+    * https://stackoverflow.com/questions/27631629/masking-user-input-in-python-with-asterisks
+- [ ] add 'emoji' kwarg to pluralize (@since 20220719)
+- https://docs.python.org/3/reference/import.html
+- [x] in setarea(), if len(left) > (width-len(rightbuf)-4), truncate left and add "..." (@since 20220806 @done 20220806)
+- [ ] limit a nodeid to only once per sigpath? (advertising?) (@since 20220820)
+- [ ] allow --terminalwidth to override queried value (@since 20220820)
+- [ ] add checkmodule(), which checks to see if a given module path exists and is callable without running it (@since 20220826)
+
+- (How to make a timezone aware datetime object)[https://stackoverflow.com/a/7065242]
+- https://www.howtogeek.com/devops/how-to-add-your-own-services-to-systemd-for-easier-management/ @since 20220919
+- [Create Your Custom, private Python Package That You Can PIP Install From Your Git Repository](https://towardsdatascience.com/create-your-custom-python-package-that-you-can-pip-install-from-your-git-repository-f90465867893)
+- https://code-maven.com/slides/python/format-with-conversion
+- https://docs.python.org/3/howto/logging-cookbook.html (@since 20221009) @ty ryan
+- https://www.compose.com/articles/take-a-dip-into-postgresql-arrays/
+
+- [ ] check result of bbsengine.getcurrentmemberid() for None, throw error (@since 20221021)
+- [ ] new member needs database role + permissions @since 20221021 @see https://stackoverflow.com/questions/8546759/how-to-check-if-a-postgres-user-exists
+- [ ] if marked sigop of top.example, then implicitly you are sigop of top.example.* (@since 20221026)
+- [ ] if marked moderator of top.example, you are moderator of only top.example (@since 20221026)
+- [ ] rename/move socrates.getreplies() (pl/python) into engine and call it 'getsubnodes()' (@since 20221026)
+- [ ] member expert mode.. no editor milter will be run (replacing \n with {f6}) (@since 20221029)
+
