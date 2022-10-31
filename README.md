@@ -335,4 +335,4 @@ NameError: name 'main' is not defined
 - [ ] if marked moderator of top.example, you are moderator of only top.example (@since 20221026)
 - [ ] rename/move socrates.getreplies() (pl/python) into engine and call it 'getsubnodes()' (@since 20221026)
 - [ ] member expert mode.. no editor milter will be run (replacing \n with {f6}) (@since 20221029)
-
+- [x] move socrates.editbody() to bbsengine.runtexteditor() (@since 20221030 @done 20221030)
