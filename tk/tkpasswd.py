@@ -13,19 +13,21 @@ class App(tk.Tk):
 
         self.args = args
 
-        self.geometry('300x110')
-        self.resizable(0, 0)
+#        self.geometry('300x110')
+#        self.resizable(0, 0)
         self.title('Reset Password')
         # UI options
         paddings = {'padx': 5, 'pady': 5}
-        entry_font = {'font': ('Helvetica', 11)}
+        entry_font = {'font': ('monospace', 11)}
 
         # configure the grid
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
         self.username = tk.StringVar()
-        self.password = tk.StringVar()
+        self.new_password = tk.StringVar()
+        self.old_password = tk.StringVar()
+        self.repeat_password = tk.StringVar()
 
         # username
         username_label = ttk.Label(self, text="Username:")
@@ -34,16 +36,37 @@ class App(tk.Tk):
         username_entry = ttk.Entry(self, textvariable=self.username, **entry_font)
         username_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
 
-        # password
-        password_label = ttk.Label(self, text="Password:")
-        password_label.grid(column=0, row=1, sticky=tk.W, **paddings)
+        self.sysop = False # bbsengine.checksysop(self.args)
 
-        password_entry = ttk.Entry(self, textvariable=self.password, show="*", **entry_font)
-        password_entry.grid(column=1, row=1, sticky=tk.E, **paddings)
+        row = 1
+        # old_password
+        if self.sysop is False:
+            old_password_label = ttk.Label(self, text="Old Password:")
+            old_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+
+            old_password_entry = ttk.Entry(self, textvariable=self.old_password, show="*", **entry_font)
+            old_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+
+            row += 1
+
+        new_password_label = ttk.Label(self, text="New Password:")
+        new_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+
+        new_password_entry = ttk.Entry(self, textvariable=self.new_password, show="*", **entry_font)
+        new_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+
+        row += 1
+        repeat_password_label = ttk.Label(self, text="Repeat Password:")
+        repeat_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+
+        repeat_password_entry = ttk.Entry(self, textvariable=self.repeat_password, show="*", **entry_font)
+        repeat_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        
+        row += 1
 
         # change button
         change_button = ttk.Button(self, text="change password", command=self.change)
-        change_button.grid(column=1, row=3, sticky=tk.E, **paddings)
+        change_button.grid(column=1, row=row, sticky=tk.E, **paddings)
 
         # configure style
         self.style = ttk.Style(self)
@@ -52,15 +75,28 @@ class App(tk.Tk):
 
     def change(self):
         username = self.username.get()
-        password = self.password.get()
-        ttyio.echo(f"username={username!r}", level="debug")
-        ttyio.echo(f"password={password!r}", level="debug")
-        memberid = bbsengine.getmemberidfromloginid(self.args, username)
-        if memberid is False:
-            ttyio.echo("you do not exist! go away!")
+        new_password = self.new_password.get()
+        old_password = self.old_password.get()
+        repeat_password = self.repeat_password.get()
+
+        if self.sysop is False:
+            if bbsengine.checkpassword(args, old_password) is False:
+                ttyio.echo("password mismatch (oldpassword)", level="error")
+                return
+
+        if new_password != repeat_password:
+            ttyio.echo("enter your new password twice", level="error") # dialog box?
             return
 
-        bbsengine.changepassword(args, memberid, password)
+        ttyio.echo(f"username={username!r}", level="debug")
+        ttyio.echo(f"new_password={new_password!r}", level="debug")
+        memberid = bbsengine.getmemberidfromloginid(self.args, username)
+        if memberid is False:
+            ttyio.echo("you do not exist! go away!", level="error")
+            return
+
+        bbsengine.setpassword(args, new_password)
+
         dbh = bbsengine.databaseconnect(args)
         dbh.commit()
 #        if bbsengine.checkpassword(args, username, memberid) is True:
