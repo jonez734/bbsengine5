@@ -13,8 +13,8 @@ class App(tk.Tk):
 
         self.args = args
 
-        self.geometry('300x110')
-        self.resizable(0, 0)
+#        self.geometry('300x110')
+#        self.resizable(0, 0)
         self.title('Login')
         # UI options
         paddings = {'padx': 5, 'pady': 5}
@@ -24,26 +24,26 @@ class App(tk.Tk):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
-        self.username = tk.StringVar()
+        self.name = tk.StringVar()
         self.password = tk.StringVar()
 
         # username
-        username_label = ttk.Label(self, text="Username:")
-        username_label.grid(column=0, row=0, sticky=tk.W, **paddings)
+        self.name_label = ttk.Label(self, text="Name:")
+        self.name_label.grid(column=0, row=0, sticky=tk.W, **paddings)
 
-        username_entry = ttk.Entry(self, textvariable=self.username, **entry_font)
-        username_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
+        self.name_entry = ttk.Entry(self, textvariable=self.name, **entry_font)
+        self.name_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
 
         # password
-        password_label = ttk.Label(self, text="Password:")
-        password_label.grid(column=0, row=1, sticky=tk.W, **paddings)
+        self.password_label = ttk.Label(self, text="Password:")
+        self.password_label.grid(column=0, row=1, sticky=tk.W, **paddings)
 
-        password_entry = ttk.Entry(self, textvariable=self.password, show="*", **entry_font)
-        password_entry.grid(column=1, row=1, sticky=tk.E, **paddings)
+        self.password_entry = ttk.Entry(self, textvariable=self.password, show="*", **entry_font)
+        self.password_entry.grid(column=1, row=1, sticky=tk.E, **paddings)
 
         # login button
-        login_button = ttk.Button(self, text="Login", command=self.check)
-        login_button.grid(column=1, row=3, sticky=tk.E, **paddings)
+        self.login_button = ttk.Button(self, text="Login", command=self.check)
+        self.login_button.grid(column=1, row=3, sticky=tk.E, **paddings)
 
         # configure style
         self.style = ttk.Style(self)
@@ -52,20 +52,20 @@ class App(tk.Tk):
         self.bind('<Escape>', lambda e: self.close(e))
 
     def check(self):
-        username = self.username.get()
+        name = self.name.get()
         password = self.password.get()
-        ttyio.echo(f"username={username!r}", level="debug")
-        ttyio.echo(f"password={password!r}", level="debug")
-        memberid = bbsengine.getmemberidfromloginid(self.args, username)
+        memberid = bbsengine.getmemberidfromname(self.args, name)
+        ttyio.echo(f"name={name!r} password={password!r} memberid={memberid!r}", level="debug")
         if memberid is False:
             ttyio.echo("you do not exist! go away!")
             return
 
         if bbsengine.checkpassword(args, password, memberid) is True:
             ttyio.echo("password is correct")
+            self.destroy()
         else:
             ttyio.echo("password is wrong")
-        ttyio.echo(f"memberid={memberid!r}", level="debug")
+            self.password_entry.delete(0, tk.END)
 
     def close(self, e):
        self.destroy()

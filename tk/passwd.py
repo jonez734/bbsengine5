@@ -13,9 +13,7 @@ class App(tk.Tk):
 
         self.args = args
 
-#        self.geometry('300x110')
-#        self.resizable(0, 0)
-        self.title('Reset Password')
+        self.title('Change Password')
         # UI options
         paddings = {'padx': 5, 'pady': 5}
         entry_font = {'font': ('monospace', 11)}
@@ -30,43 +28,47 @@ class App(tk.Tk):
         self.repeat_password = tk.StringVar()
 
         # username
-        username_label = ttk.Label(self, text="Username:")
-        username_label.grid(column=0, row=0, sticky=tk.W, **paddings)
+        self.username_label = ttk.Label(self, text="Username:")
+        self.username_label.grid(column=0, row=0, sticky=tk.W, **paddings)
 
-        username_entry = ttk.Entry(self, textvariable=self.username, **entry_font)
-        username_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
+        self.username_entry = ttk.Entry(self, textvariable=self.username, **entry_font)
+        self.username_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
+        self.username_entry.delete(0, tk.END)
+        self.username_entry.insert(0, bbsengine.getcurrentmembername(args))
 
-        self.sysop = False # bbsengine.checksysop(self.args)
+        self.sysop = True # bbsengine.checksysop(self.args)
 
         row = 1
         # old_password
         if self.sysop is False:
-            old_password_label = ttk.Label(self, text="Old Password:")
-            old_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+            self.old_password_label = ttk.Label(self, text="Old Password:")
+            self.old_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
 
-            old_password_entry = ttk.Entry(self, textvariable=self.old_password, show="*", **entry_font)
-            old_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+            self.old_password_entry = ttk.Entry(self, textvariable=self.old_password, show="*", **entry_font)
+            self.old_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+            
+            self.username_entry.config(state="disabled")
 
             row += 1
 
-        new_password_label = ttk.Label(self, text="New Password:")
-        new_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+        self.new_password_label = ttk.Label(self, text="New Password:")
+        self.new_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
 
-        new_password_entry = ttk.Entry(self, textvariable=self.new_password, show="*", **entry_font)
-        new_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        self.new_password_entry = ttk.Entry(self, textvariable=self.new_password, show="*", **entry_font)
+        self.new_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
 
         row += 1
-        repeat_password_label = ttk.Label(self, text="Repeat Password:")
-        repeat_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+        self.repeat_password_label = ttk.Label(self, text="Repeat Password:")
+        self.repeat_password_label.grid(column=0, row=row, sticky=tk.W, **paddings)
 
-        repeat_password_entry = ttk.Entry(self, textvariable=self.repeat_password, show="*", **entry_font)
-        repeat_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        self.repeat_password_entry = ttk.Entry(self, textvariable=self.repeat_password, show="*", **entry_font)
+        self.repeat_password_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
         
         row += 1
 
         # change button
-        change_button = ttk.Button(self, text="change password", command=self.change)
-        change_button.grid(column=1, row=row, sticky=tk.E, **paddings)
+        self.change_button = ttk.Button(self, text="change password", command=self.change)
+        self.change_button.grid(column=1, row=row, sticky=tk.E, **paddings)
 
         # configure style
         self.style = ttk.Style(self)
@@ -79,6 +81,12 @@ class App(tk.Tk):
         old_password = self.old_password.get()
         repeat_password = self.repeat_password.get()
 
+        self.repeat_password_entry.delete(0, tk.END)
+        self.new_password_entry.delete(0, tk.END)
+        if self.sysop is False:
+            self.old_password_entry.delete(0, tk.END)
+        self.repeat_password_entry.delete(0, tk.END)
+        
         if self.sysop is False:
             if bbsengine.checkpassword(args, old_password) is False:
                 ttyio.echo("password mismatch (oldpassword)", level="error")
@@ -90,9 +98,13 @@ class App(tk.Tk):
 
         ttyio.echo(f"username={username!r}", level="debug")
         ttyio.echo(f"new_password={new_password!r}", level="debug")
-        memberid = bbsengine.getmemberidfromloginid(self.args, username)
+        memberid = bbsengine.getmemberidfromname(self.args, username)
         if memberid is False:
             ttyio.echo("you do not exist! go away!", level="error")
+            return
+
+        if self.new_password == "" and self.repeat_password == "":
+            ttyio.echo("empty passwords are not allowed", level="error")
             return
 
         bbsengine.setpassword(args, new_password)
@@ -109,7 +121,7 @@ class App(tk.Tk):
        self.destroy()
 
 def buildargs(args=None, **kw):
-    parser = argparse.ArgumentParser("tklogin")
+    parser = argparse.ArgumentParser("tkpasswd")
     parser.add_argument("--verbose", action="store_true", dest="verbose")
     parser.add_argument("--debug", action="store_true", dest="debug")
 
