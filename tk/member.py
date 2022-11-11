@@ -12,66 +12,178 @@ class App(tk.Tk):
         super().__init__()
 
         self.args = args
+        self.sysop = False # bbsengine.checksysop(args)
+        
+        self.vars = {}
 
-#        self.geometry('300x110')
-#        self.resizable(0, 0)
-        self.title('Member')
+        self.title('Edit Member')
         # UI options
-        paddings = {'padx': 5, 'pady': 5}
-        entry_font = {'font': ('Helvetica', 11)}
+        paddings = {'padx': 10, 'pady': 10}
+
+        # configure style
+        self.style = ttk.Style(self)
+        self.style.configure("TLabel",  font=("TkFixedFont", 11))
+        self.style.configure("TButton", font=("TkFixedFont", 11)) #Helvetica", 11))
+        self.style.configure("TEntry",  font=("TkFixedFont", 11))
 
         # configure the grid
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=3)
 
-        self.name = tk.StringVar()
-        self.email = tk.StringVar()
-        self.credits = tk.IntVar()
-        self.loginid = tk.StringVar()
+        # self.datecreated = tk.StringVar()
+        
+        self.dbh = bbsengine.databaseconnect(self.args)
+
+        self.memberid = bbsengine.getcurrentmemberid(args)
+        self.member = bbsengine.getmemberbyid(self.dbh, self.memberid)
+
+        row = 0
 
         # name
-        self.name_label = ttk.Label(self, text="name:")
-        self.name_label.grid(column=0, row=0, sticky=tk.W, **paddings)
+        self.name = tk.StringVar()
 
-        self.name_entry = ttk.Entry(self, textvariable=self.name, **entry_font)
-        self.name_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
+        self.name_label = ttk.Label(self, text="name")
+        self.name_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+
+        self.name_entry = ttk.Entry(self, textvariable=self.name)
+        self.name_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+
+        self.name_entry.delete(0, tk.END)
+        self.name_entry.insert(0, self.member["name"])
+        
+        if self.sysop is False:
+            self.name_entry.config(state="disabled")
+
+        row += 1
 
         # email
-        self.email_label = ttk.Label(self, text="email:")
-        self.email_label.grid(column=0, row=1, sticky=tk.W, **paddings)
+        self.email = tk.StringVar()
 
-        self.password_entry = ttk.Entry(self, textvariable=self.password, show="*", **entry_font)
-        self.password_entry.grid(column=1, row=1, sticky=tk.E, **paddings)
+        self.email_label = ttk.Label(self, text="email")
+        self.email_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+        
+        self.email_entry = ttk.Entry(self, textvariable=self.email)
+        self.email_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        self.email_entry.delete(0, tk.END)
+        self.email_entry.insert(0, self.member["email"])
+        
+        row += 1
 
-        # configure style
-        self.style = ttk.Style(self)
-        self.style.configure('TLabel', font=('Helvetica', 11))
-        self.style.configure('TButton', font=('Helvetica', 11))
-        self.style.configure("TEntry", font=("Helvetica", 11))
+        # date created
+        
+        self.datecreated = tk.StringVar()
+
+        self.datecreated_label = ttk.Label(self, text="date created")
+        self.datecreated_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+        
+        self.datecreated_entry = ttk.Entry(self, textvariable=self.datecreated)
+        self.datecreated_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        self.datecreated_entry.delete(0, tk.END)
+        self.datecreated_entry.insert(0, self.member["datecreated"])
+
+        row += 1
+        
+        flags = bbsengine.getflags(self.args, self.memberid)
+        ttyio.echo(f"flags={flags!r}", level="debug")
+        flags_frame = tk.LabelFrame(self, borderwidth=2, relief=tk.GROOVE, text="Flags")
+        flags_frame.grid(column=0, row=row, columnspan=2, sticky=tk.W+tk.E, **paddings)
+        
+        self.flagvars = {}
+        for f, v in flags.items():
+            ttyio.echo(f"f={f!r} v={v!r}", level="debug") #  v.value={v['value']!r} v.description={v['description']!r}", level="debug")
+            self.flagvars[f] = tk.BooleanVar()
+            self.flagvars[f].set(v["value"])
+            
+            flag_checkbutton = tk.Checkbutton(flags_frame, text=v["description"], variable=self.flagvars[f], onvalue=True, offvalue=False)
+            flag_checkbutton.pack(anchor=tk.W)
+
+            if v["value"] is True:
+                self.flagvars[f].set(True)
+            else:
+                self.flagvars[f].set(False)
+
+            if f == "AUTHENTICATED":
+                flag_checkbutton.configure(state=tk.DISABLED)
+
+        row += 1
+
+        # notify count
+        self.notifycount = tk.IntVar()
+
+        self.notifycount_label = ttk.Label(self, text="notify count:")
+        self.notifycount_label.grid(column=0, row=row, sticky=tk.W, **paddings)
+
+        self.notifycount_entry = ttk.Entry(self, textvariable=self.notifycount)
+        self.notifycount_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        if self.sysop is False:
+            self.notifycount_entry.config(state="disabled")
+
+        row += 1
+        self.credits = tk.IntVar()
+        
+        self.credits_label = ttk.Label(self, text="credits")
+        self.credits_label.grid(column=0, row=row, sticky=tk.E, **paddings)
+        
+        self.credits_entry = ttk.Entry(self, textvariable=self.notifycount)
+        self.credits_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        if self.sysop is False:
+            self.credits_entry.config(state="disabled")
+
+        row += 1
+
+        self.loginid = tk.StringVar()
+        self.loginid_label = ttk.Label(self, text="loginid")
+        self.loginid_label.grid(column=0, row=row, sticky=tk.E, **paddings)
+
+        self.loginid_entry = ttk.Entry(self, textvariable=self.loginid)
+        self.loginid_entry.grid(column=1, row=row, sticky=tk.E, **paddings)
+        if self.sysop is False:
+            self.loginid_entry.config(state="disabled")
+
+        row += 1
+
+        self.uivars = {
+            "tkinter": {"var":tk.BooleanVar()},
+            "ansi":    {"var":tk.BooleanVar()},
+            "web":     {"var":tk.BooleanVar()}
+        }
+        ui_frame = tk.LabelFrame(self, borderwidth=2, relief=tk.GROOVE, text="UI")
+        ui_frame.grid(column=0, row=row, columnspan=2, sticky=tk.W+tk.E, **paddings)
+        for n, v in self.uivars.items():
+            ui_checkbutton = tk.Checkbutton(ui_frame, text=n, variable=self.uivars[n]["var"], onvalue=True, offvalue=False)
+            ui_checkbutton.pack(anchor=tk.W)
+
+        row += 1
+
+        # update button
+        self.change_button = ttk.Button(self, text="update member", command=self.update)
+        self.change_button.grid(column=1, row=row, sticky=tk.E, **paddings)
+        
+        if self.sysop is True:
+            self.name_entry.focus_set()
+        else:
+            self.email_entry.focus_set()
+
         self.bind('<Escape>', lambda e: self.close(e))
 
-    def check(self):
+
+    def update(self):
         name = self.name.get()
-        password = self.password.get()
-        memberid = bbsengine.getmemberidfromname(self.args, name)
-        ttyio.echo(f"name={name!r} password={password!r} memberid={memberid!r}", level="debug")
-        if memberid is False:
+        if self.memberid is None:
             ttyio.echo("you do not exist! go away!")
             return
+        for k, v in self.vars.items():
+            ttyio.echo(f"{k!r}={v.get()!r}", level="debug")
+#        ttyio.echo(f"vars={vars!r}", level="debug")
 
-        if bbsengine.checkpassword(args, password, memberid) is True:
-            ttyio.echo("password is correct")
-            self.destroy()
-        else:
-            ttyio.echo("password is wrong")
-            self.password_entry.delete(0, tk.END)
-            
+        ttyio.echo("update button clicked", level="debug")
+        
     def close(self, e):
-        ttyio.echo(f"tkmember.close.100: {e!r}", level="debug")
+        # ttyio.echo(f"tkmember.close.100: {e!r}", level="debug")
         self.destroy()
 
 def buildargs(args=None, **kw):
-    parser = argparse.ArgumentParser("tklogin")
+    parser = argparse.ArgumentParser("member")
     parser.add_argument("--verbose", action="store_true", dest="verbose")
     parser.add_argument("--debug", action="store_true", dest="debug")
 
