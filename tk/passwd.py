@@ -34,9 +34,9 @@ class App(tk.Tk):
         self.username_entry = ttk.Entry(self, textvariable=self.username, **entry_font)
         self.username_entry.grid(column=1, row=0, sticky=tk.E, **paddings)
         self.username_entry.delete(0, tk.END)
-        self.username_entry.insert(0, bbsengine.getcurrentmembername(args))
+        self.username_entry.insert(0, bbsengine.getmembername(args))
 
-        self.sysop = True # bbsengine.checksysop(self.args)
+        self.sysop = False # bbsengine.checksysop(self.args)
 
         row = 1
         # old_password

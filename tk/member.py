@@ -6,7 +6,6 @@ from tkinter import ttk
 import ttyio5 as ttyio
 import bbsengine5 as bbsengine
 
-
 class App(tk.Tk):
     def __init__(self, args):
         super().__init__()
@@ -164,7 +163,8 @@ class App(tk.Tk):
         else:
             self.email_entry.focus_set()
 
-        self.bind('<Escape>', lambda e: self.close(e))
+#        self.bind('<Escape>', lambda e: self.close(e))
+        self.bind('<Escape>', lambda e: self.quit())
 
 
     def update(self):
@@ -177,6 +177,14 @@ class App(tk.Tk):
 #        ttyio.echo(f"vars={vars!r}", level="debug")
 
         ttyio.echo("update button clicked", level="debug")
+        ui = []
+        for k, v in self.uivars.items():
+#            ttyio.echo(f"{k}={v['var'].get()}", level="debug")
+            if v["var"].get() is True:
+                ui.append(k)
+        self.member["ui"] = " ".join(ui)
+
+        bbsengine.updatemember(args, self.memberid, self.member)
         
     def close(self, e):
         # ttyio.echo(f"tkmember.close.100: {e!r}", level="debug")
