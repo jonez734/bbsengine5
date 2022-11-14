@@ -4,7 +4,7 @@ from __future__ import generators    # needs to be at the top of your module
 # Copyright (C) 2008-2021 zoidtechnologies.com. All Rights Reserved.
 #
 
-import re, os, sys, pwd, time, random, pathlib
+import re, os, sys, pwd, time, random, pathlib, copy, socket, json
 import importlib.resources as resource
 
 import psycopg2, psycopg2.extras
@@ -76,7 +76,7 @@ class Node(object):
 
         if name not in attributes:
             if self.args.debug is True:
-                ttyio.echo("name %r not in database record, using default" % (name), level="warning")
+                ttyio.echo(f"name {name!r} not in database record, using default", level="warning")
             value = default
         else:
             value = attributes[name]
@@ -218,9 +218,8 @@ class inputcompleter(object):
     
     cur = self.dbh.cursor()
     cur.execute(sql, dat)
-    res = cur.fetchall()
     self.matches = []
-    for rec in res:
+    for rec in resultiter(cur):
       self.matches.append(str(rec[self.primarykey]))
     cur.close()
     return self.matches
@@ -283,7 +282,7 @@ def inputprimarykey(args:argparse.Namespace, table, primarykey, prompt, default,
       if args.debug is True:
         ttyio.echo("inputprimarykey.200: verify is callable", level="debug")
       v = verify(dbh, args, table, primarykey, buf)
-      ttyio.echo("verify=%r" % (v), interpet=False)
+      ttyio.echo("verify=%r" % (v), level="debug")
       if v is True:
         if args.debug is True:
           ttyio.echo("verify returned true", level="debug")
@@ -312,32 +311,33 @@ def _databaseconnect(**kw):
   databasehandles[dsn] = dbh
   return dbh
 
-def databaseconnect(args: argparse.Namespace):
-    kw = {}
-    if type(args) == type({}):
-      if "databasekey" in args:
-        kw["database"] = args["databasename"]
-      if "databasehost" in args:
-        kw["host"] = args["databasehost"]
-      if "databaseuser" in args:
-        kw["user"] = args["databaseuser"]
-      if "databasepassword" in args:
-        kw["password"] = args["databasepassword"]
-      if "databaseport" in args:
-        kw["port"] = args["databaseport"]
-    else:
-      if hasattr(args, "databasename"):
-        kw["database"] = args.databasename
-      if hasattr(args, "databasehost"):
-        kw["host"] = args.databasehost
-      if hasattr(args, "databaseuser"):
-        kw["user"] = args.databaseuser
-      if hasattr(args, "databasepassword"):
-        kw["password"] = args.databasepassword
-      if hasattr(args, "databaseport"):
-        kw["port"] = args.databaseport
-    
-    return _databaseconnect(**kw)
+def databaseconnect(args):
+#  ttyio.echo(f"databaseconnect.100: args={args!r}", level="debug")
+  kw = {}
+  if type(args) == dict:
+    if "databasekey" in args:
+      kw["database"] = args["databasename"]
+    if "databasehost" in args:
+      kw["host"] = args["databasehost"]
+    if "databaseuser" in args:
+      kw["user"] = args["databaseuser"]
+    if "databasepassword" in args:
+      kw["password"] = args["databasepassword"]
+    if "databaseport" in args:
+      kw["port"] = args["databaseport"]
+  else:
+    if hasattr(args, "databasename"):
+      kw["database"] = args.databasename
+    if hasattr(args, "databasehost"):
+      kw["host"] = args.databasehost
+    if hasattr(args, "databaseuser"):
+      kw["user"] = args.databaseuser
+    if hasattr(args, "databasepassword"):
+      kw["password"] = args.databasepassword
+    if hasattr(args, "databaseport"):
+      kw["port"] = args.databaseport
+
+  return _databaseconnect(**kw)
 
 # import time as _time
 
@@ -380,6 +380,7 @@ class LocalTimezone(tzinfo):
 # @since 20120126
 def inputdate(prompt, origvalue=None, **kw):
   from getdate import getdate, error
+
   if origvalue is None:
     buf = ttyio.inputstring(prompt, **kw)
   elif type(origvalue) == int:
@@ -392,7 +393,8 @@ def inputdate(prompt, origvalue=None, **kw):
 
   time.tzset()
 #  print(type(buf))
-  return getdate(buf)
+  epochseconds = getdate(buf)
+  return datetime.fromtimestamp(epochseconds)
 
 #  try:
 #    epoch = getdate(buf)
@@ -559,15 +561,23 @@ def getsignamefromid(dbh, id):
     return res["name"]
   return None
 
-def update(dbh, table, key, values:dict, primarykey="id", mogrify=False):
-  ttyio.echo("bbsengine5.update.100: values=%r" % (values), level="debug") # interpret=False)
-  if primarykey in values:
-    del values[primarykey]
+def update(dbh, table, key, items:dict, primarykey="id", mogrify=False):
+#  ttyio.echo(f"bbsengine5.update.100: items={items!r}", level="debug") # interpret=False)
+#  ttyio.echo(f"bbsengine5.update.120: items['attributes']={items['attributes']!r} type={type(items['attributes'])}", level="debug")
+  for k, v in items.items():
+    if type(items[k]) == dict:
+      items[k] = json.dumps(items[k])
+    if k == "datecreatedepoch":
+      del items[k]
+
+  i = copy.deepcopy(items)
+  if primarykey in i:
+    del i[primarykey]
 
   sql = "update %s set " % (table)
   params = []
   dat = []
-  for k, v in values.items():
+  for k, v in i.items():
     params.append("%s=%%s" % (k),)
     dat.append(v)
 
@@ -576,15 +586,15 @@ def update(dbh, table, key, values:dict, primarykey="id", mogrify=False):
   dat.append(key)
 
   cur = dbh.cursor()
-  ret = cur.execute(sql, dat)
+  cur.execute(sql, dat)
 
   if mogrify is True:
     ttyio.echo(cur.mogrify(sql, dat), level="debug")
 
   cur.close()
-  return ret
+  return cur.rowcount
 
-def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
+def insert(dbh, table:str, dict, returnid:bool=True, primarykey:str="id", mogrify:bool=False):
   columns = dict.keys()
   sql = "insert into %s(" % (table)
   sql += ", ".join(columns)
@@ -603,9 +613,8 @@ def insert(dbh, table, dict, returnid=True, primarykey="id", mogrify=False):
   # ttyio.echo("bbsengine.insert.100: sql=%s dat=%s" % (sql, dat), level="debug")
   cur = dbh.cursor()
 
-  if mogrify is True:
-    ttyio.echo("bbsengine5.insert.100: %r" % (cur.mogrify(sql, dat)), level="debug")
-
+#  if mogrify is True:
+#    ttyio.echo("bbsengine5.insert.100: %r" % (cur.mogrify(sql, dat)), level="debug")
 #      ttyio.echo(cur.mogrify(sql, [tuple(v.values() for v in dat)]), level="debug")
   cur.execute(sql, dat)
   if returnid is True:
@@ -675,7 +684,7 @@ def updatenode(dbh, args:argparse.Namespace, id:int, node:dict, reset=False, mog
     del node["attributes"]
   return update(dbh, "engine.__node", id, node, mogrify=mogrify)
 
-def setflag(dbh, memberid, flag, value, mogrify=False):
+def setmemberflag(dbh, memberid, flag, value, mogrify=False):
   logentry("setflag(%d, '%s', %s)" % (memberid, flag, value))
   sql = "delete from engine.map_member_flag where memberid=%s and name=%s"
   dat = (memberid, flag)
@@ -755,8 +764,8 @@ def logentry(message, output=True, level=None, priority=syslog.LOG_INFO, stripco
     elif level == "error":
       message = "{red}** error ** "+message+"{/all}"
 
-  message = ttyio.interpretmci(message, strip=True)
-  syslog(priority, message)
+  message = ttyio.interpretecho(message, strip=True)
+  syslog.syslog(priority, message)
 
   if output is True:
     ttyio.echo(message, stripcommands=stripcommands, datestamp=datestamp, interpret=False)
@@ -787,7 +796,7 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
 
 currentmemberid = None
 # @since 20120306
-def getcurrentmemberid(args: argparse.Namespace):
+def getcurrentmemberid(args):
   global currentmemberid
 
   if currentmemberid is not None:
@@ -824,16 +833,12 @@ def getcurrentmemberlogin(args: argparse.Namespace):
 
   dbh = databaseconnect(args)
   cur = dbh.cursor()
-  sql = "select 1 where attributes->>'loginid'=%s"
+  sql = "select 1 from engine.member where attributes->>'loginid'=%s"
   dat = (loginid,)
   cur.execute(sql, dat)
   if cur.rowcount == 0:
     return None
   return loginid
-  
-  if loginid in membermap:
-    return loginid
-  return None
 
 def buildname(txt):
   if txt is None:
@@ -1183,7 +1188,10 @@ class Menu(object):
     return None
 
 # @since 20200819
-def getmembercredits(args:argparse.Namespace, memberid:int) -> int:
+def getmembercredits(args, memberid:int=None) -> int:
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
   dbh = databaseconnect(args)
   sql = "select credits from engine.member where id=%s" 
   dat = (memberid,)
@@ -1194,11 +1202,14 @@ def getmembercredits(args:argparse.Namespace, memberid:int) -> int:
     return None
   return res["credits"] if "credits" in res else None
 
-def getcurrentmembercredits(args:argparse.Namespace) -> int:
-  memberid = getcurrentmemberid(args)
-  return getmembercredits(args, memberid)
+#def getcurrentmembercredits(args:argparse.Namespace) -> int:
+#  memberid = getcurrentmemberid(args)
+#  return getmembercredits(args, memberid)
 
-def getmembername(args:argparse.Namespace, memberid:int) -> str:
+def getmembername(args:argparse.Namespace, memberid:int=None) -> str:
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
   dbh = databaseconnect(args)
   sql = "select name from engine.member where id=%s"
   dat = (memberid,)
@@ -1209,9 +1220,10 @@ def getmembername(args:argparse.Namespace, memberid:int) -> str:
     return res["name"]
   return None
   
-def getcurrentmembername(args:argparse.Namespace) -> str:
-  currentmemberid = getcurrentmemberid(args)
-  return getmembername(args, currentmemberid)
+#def getcurrentmembername(args:argparse.Namespace) -> str:
+#  currentmemberid = getcurrentmemberid(args)
+##  ttyio.echo(f"getcurrentmembername.100: currentmemberid={currentmemberid!r}", level="debug")
+#  return getmembername(args, currentmemberid)
 
 # @since 20200802
 def setmembercredits(dbh:object, memberid:int, amount:int):
@@ -1223,12 +1235,18 @@ def setmembercredits(dbh:object, memberid:int, amount:int):
   dat = (amount, memberid)
   return cur.execute(sql, dat)
 
-# @since 20200802
-def updatememberattribute(dbh:object, args:argparse.Namespace, memberid:int, field:str, amount):
-  pass
+# @since 20221111
+def updatemember(args, member, memberid=None):
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
+  m = buildmemberdict(member)
+  dbh = databaseconnect(args)
+  update(dbh, "engine.__member", memberid, m, mogrify=True)
+  return
 
 # @since 20210203
-def getcurrentmember(args:argparse.Namespace, fields="*") -> dict:
+def getcurrentmember(args, fields="*") -> dict:
   currentmemberid = getcurrentmemberid(args)
   dbh = databaseconnect(args)
   return getmemberbyid(dbh, currentmemberid, fields)
@@ -1252,7 +1270,7 @@ def getmemberbyid(dbh:object, memberid:int, fields="*") -> dict:
   cur.execute(sql, dat)
   res = cur.fetchone()
   cur.close()
-  return res
+  return buildmemberdict(res)
 
 def pluralize(amount:int, singular:str, plural:str, quantity=True, emoji:str="") -> str:
   if amount is None or amount == 0:
@@ -1266,9 +1284,9 @@ def pluralize(amount:int, singular:str, plural:str, quantity=True, emoji:str="")
     buf = "{:n}".format(amount)
     return "%s%s %s" % (emoji, buf, plural)
   if amount == 1:
-    return "%s %s" % (emoji, singular)
+    return "%s%s" % (emoji, singular)
   else:
-    return "%s %s" % (emoji, plural)
+    return "%s%s" % (emoji, plural)
 
 def startsession():
   pass
@@ -1276,7 +1294,7 @@ def startsession():
 def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
   if width is None:
     width = ttyio.getterminalwidth()
-  return "{/all}%s{acs:hline:%d}{/all}" % (color, width)
+  return f"{{/all}}{color}{{acs:hline:{width}}}{{/all}}" # % (color, width)
 
 # titlecolor = "{reverse}"
 # hrcolor = ""
@@ -1364,12 +1382,14 @@ def diceroll(sides:int=6, count:int=1, mode:str="single"):
   else:
     return None
 
-# @since 20210222
-def initscreen(topmargin=0, bottommargin=0):
-  terminalheight = ttyio.getterminalheight()
-  ttyio.echo("{decsc}{decstbm:%d,%d}{decrc}" % (topmargin, terminalheight-bottommargin))
-  return
+# @since 20210222 use format strings, set bottommargin to 1
+def initscreen(topmargin=0, bottommargin=1):
+  ttyio.echo("{f6:3}{cursorup:3}")
 
+  terminalheight = ttyio.getterminalheight()
+  ttyio.echo(f"{{decsc}}{{decstbm:{topmargin},{terminalheight-bottommargin}}}{{decrc}}") #  % (topmargin, terminalheight-bottommargin)) #  % (topmargin, terminalheight-bottommargin))
+
+  return
 
 # @since 20210129
 def inittopbar(height:int=1):
@@ -1470,6 +1490,7 @@ def inputfilename(args: argparse.Namespace, prompt, default, verify=verifyFileEx
 
 def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.Namespace, callback, argparser=None, **kwargs):
   if args.debug is True:
+    ttyio.echo("bbsengine5.runcallback.100: args=%r" % (args), level="debug")
     ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), level="debug")# interpret=False)
 #  if argparser is not None:
 #    args = argparser.parse_args()
@@ -1517,6 +1538,9 @@ def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.N
   except ModuleNotFoundError:
       ttyio.echo("runcallback.180: module %s not found" % (modulepath), level="error")
       return None
+  except Exception as e:
+      import traceback
+      traceback.print_exc(file=sys.stdout)
 
   if args.debug is True:
     ttyio.echo("runcallback.200: m=%r funcname=%r" % (m, funcname), level="debug")
@@ -1552,7 +1576,7 @@ def inputpassword(prompt:str="password: ", mask="X") -> str:
 
 # @see https://stackoverflow.com/a/53981846
 # @since 20210709 moved from ttyio4
-def oxfordcomma(seq: List[Any], sepcolor:str="", itemcolor:str="") -> str:
+def oxfordcomma(seq: List[Any], conjunction="and") -> str:
     """Return a grammatically correct human readable string (with an Oxford comma)."""
     seq = [str(s) for s in seq]
 
@@ -1561,11 +1585,11 @@ def oxfordcomma(seq: List[Any], sepcolor:str="", itemcolor:str="") -> str:
       return ""
 
     if len(seq) < 3:
-      buf = "%s and %s" % (sepcolor, itemcolor)
-      return itemcolor+buf.join(seq) # " and ".join(seq)
+      buf = f"{{var:sepcolor}} {conjunction} {{var:valuecolor}}"
+      return f"{{var:valuecolor}}{buf.join(seq)}" # itemcolor+buf.join(seq) # " and ".join(seq)
 
-    buf = "%s, %s" % (sepcolor, itemcolor)
-    return itemcolor+buf.join(seq[:-1]) + '%s, and %s' % (sepcolor, itemcolor) + seq[-1]
+    buf = f"{{var:sepcolor}}, {{var:valuecolor}}"
+    return f"{{var:valuecolor}}{buf.join(seq[:-1])}{{var:sepcolor}}, {conjunction} {{var:valuecolor}}{seq[-1]}"
 
 readablelist = oxfordcomma
 
@@ -1616,7 +1640,7 @@ def setarea(left, right=None, stack=False):
   else:
     leftbuf = type(left) # "ERROR"
 
-  l = ttyio.interpretmci(leftbuf, strip=True)
+  l = ttyio.interpretecho(leftbuf, strip=True)
 
   if callable(right):
     rightbuf = right()
@@ -1627,7 +1651,7 @@ def setarea(left, right=None, stack=False):
   else:
     ttyio.echo("setarea.100: type(right)=%r" % (right), level="debug")
     rightbuf = "ERROR" # type(right)
-  r = ttyio.interpretmci(rightbuf, strip=True)
+  r = ttyio.interpretecho(rightbuf, strip=True)
   t = terminalwidth - len(r) - 4
   leftbuf = leftbuf[:t] + (leftbuf[t:] and '...')
 
@@ -1765,7 +1789,7 @@ def filedisplay(args, filename, more=True, width=None) -> None:
     for line in f:
       line = line.replace("\n", "{f6}")
       if more is True:
-        row += ttyio.interpretmci(line, width=width).count("\n")
+        row += ttyio.interpretecho(line, width=width).count("\n")
         if row >= height-2:
           ch = ttyio.inputboolean("{curpos:%d,1}{eraseline}{var:promptcolor}more? [{var:currentoptioncolor}Y{var:optioncolor}n{var:promptcolor}]: {var:inputcolor}" % (height), "Y")
           ttyio.echo("{cursorup}{eraseline}{/all}", end="")
@@ -1791,9 +1815,10 @@ def filedisplay(args, filename, more=True, width=None) -> None:
   else:
     with filename as f:
       process(filename)
+  ttyio.echo("{f6}")
 
-  ttyio.inputchar("{curpos:%d,1}{eraseline}{var:promptcolor}press enter key to end: {var:inputcolor}" % (height), "", noneok=True)
-  ttyio.echo("{cursorhpos:1}{eraseline}{/all}")
+#  ttyio.inputchar("{curpos:%d,1}{eraseline}{var:promptcolor}press enter key to end: {var:inputcolor}" % (height), "", noneok=True)
+#  ttyio.echo("{cursorhpos:1}{eraseline}{/all}")
 
 # @since 20220826
 def checkmodule(args, module, op="run", buildargs=False, **kw):
@@ -1804,7 +1829,8 @@ def checkmodule(args, module, op="run", buildargs=False, **kw):
       ttyio.echo(repr(e), level="error")
     return False
 
-  ttyio.echo("m=%r" % (m), level="debug")
+  if args.debug is True:
+    ttyio.echo("bbsengine5.checkmodule.100: m=%r" % (m), level="debug")
 
   # required
   if (hasattr(m, "init") and callable(m.init)) is False:
@@ -1849,16 +1875,23 @@ def runmodule(args, module, **kwargs):
     ttyio.echo("permission denied", level="error")
     return False
 
+  if args.debug is True:
+    ttyio.echo("bbsengine5.runmodule.100: args=%r" % (args), level="debug")
+
   res = runcallback(args, module + ".init", **kwargs)
   if args.debug is True:
     ttyio.echo("%s.init() result=%r" % (module, res), level="debug")
 
   if buildargs is True:
     argv = kwargs["argv"] if "argv" in kwargs else []
+    if args.debug is True:
+      ttyio.echo("bbsengine5.runmodule.120: argv=%r" % (argv), level="debug")
     prgargparser = runcallback(args, module + ".buildargs", **kwargs)
     if prgargparser is not None:
       try:
-        prgargs = prgargparser.parse_args(argv[1:])
+        argv = [a.strip() for a in argv[1:]]
+        prgargs = prgargparser.parse_args(argv) # argv[1:])
+#        prgargs = [s.strip() for s in prgargs]
       except SystemExit:
         return
       except argparse.ArgumentError:
@@ -1868,9 +1901,10 @@ def runmodule(args, module, **kwargs):
       if args.debug is True:
         ttyio.echo("bbsengine.runmodule.220: prgargs=%r" % (prgargs), level="debug")
 
-      res = runcallback(prgargs, module + ".main", **kwargs)
-  else:
-    res = runcallback(args, module+".main", **kwargs)
+      res = runcallback(prgargs, module+".main", **kwargs)
+#  else:
+#    res = runcallback(args, module+".main", **kwargs)
+  res = runcallback(args, module+".main", **kwargs)
 
   if args.debug is True:
     ttyio.echo("%s.main() result=%r" % (module, res), level="debug")
@@ -1878,5 +1912,212 @@ def runmodule(args, module, **kwargs):
 
 # @since 20220828
 def runsubmodule(args, module, **kw):
-  print("bbsengine5.runsubmodule")
-  return runmodule(args, module, buildargs=False, **kw)
+  if "buildargs" in kw:
+    buildargs = kw["buildargs"]
+    del kw["buildargs"]
+  else:
+    buildargs = False
+  return runmodule(args, module, buildargs=buildargs, **kw)
+
+def init(args, **kw):
+#  logging.config.basicConfig()
+#  logger = logging.get_logger("bbsengine5")
+#  if args.debug is True:
+#    logger.setLevel(logging.DEBUG)
+
+  dbh = databaseconnect(args)
+
+  if "REMOTEHOST" in os.environ:
+    address = os.environ["REMOTEHOST"]
+    hostname = socket.gethostbyaddr(address)[0]
+  else:
+    address = "127.0.0.42"
+    hostname = socket.gethostname()
+
+  d = {}
+  d["memberid"] = getcurrentmemberid(args)
+  d["address"] = address
+  d["hostname"] = hostname
+  d["datestamp"] = "now()"
+
+  insert(dbh, "engine.map_memberid_inetaddr", d, mogrify=True, returnid=False)
+
+  dbh.commit()
+
+  return True
+
+# moved from postoffice
+# @since 20221001
+def getencryptedpassword(args, plaintextpassword:str) -> str:
+  ttyio.echo(f"getencryptedpassword.100: plaintextpassword={plaintextpassword!r}", level="debug")
+  sql = "select crypt(%s, gen_salt('md5'))" # previously 'bf' which does not work with dovecot
+  dat = (plaintextpassword,)
+  dbh = databaseconnect(args)
+  cur = dbh.cursor()
+  cur.execute(sql, dat)
+  if cur.rowcount == 0:
+    return None
+
+  res = cur.fetchone()
+  return res["crypt"]
+
+# copied from socrates
+# @since 20221030
+def runtexteditor(body="", restricted=False):
+  import tempfile
+
+  fn = tempfile.mktemp()
+
+  try:
+    fp = open(fn, "w")
+  except PermissionError:
+    ttyio.echo(f"permission error trying to open {fn!r}", level="error")
+    return None
+  else:
+    with fp:
+      fp.writelines(body)
+  finally:
+    fp.close()
+
+  if "VISUAL" in os.environ:
+      editor = os.environ["VISUAL"]
+  elif "EDITOR" in os.environ:
+      editor = os.environ["EDITOR"]
+  else:
+      editor = "joe"
+
+  os.system("%s %s" % (editor, fn))
+
+  if os.access(fn, os.F_OK|os.R_OK):
+      fp = open(fn, "r")
+      body = fp.readlines()
+      fp.close()
+  else:
+      ttyio.echo(f"permission denied trying to read from {fn!r}", level="error")
+      return None
+
+  return "".join(body)
+
+#
+# @since 20140831 bbsengine5.php
+# @since 20221107 bbsengine5.py
+#
+def checkpassword(args, plaintext, memberid=None):
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
+  logentry(f"checkpassword.200: memberid={memberid!r}")
+  dbh = databaseconnect(args)
+  sql = "select 't' as correct from engine.member where id=%s and crypt(%s, password) = password"
+  dat = (memberid, plaintext)
+  cur = dbh.cursor()
+  cur.execute(sql, dat)
+  ttyio.echo(f"checkpassword.180: {cur.mogrify(sql, dat)}", level="debug")
+  if cur.rowcount == 0:
+    ttyio.echo("checkpassword.140: no rows returned", level="debug")
+    return False
+
+  res = cur.fetchone()
+  ttyio.echo(f"checkpassword.160: res={res!r}", level="debug")
+  if res["correct"] == "t":
+    return True
+  return False
+
+def getmemberidfromloginid(args, loginid:str) -> int:
+  dbh = databaseconnect(args)
+  cur = dbh.cursor()
+  sql = "select id from engine.member where loginid=%s"
+  dat = (loginid,)
+  cur.execute(sql, dat)
+  ttyio.echo(f"getmemberidfromloginid.140: mogrify={cur.mogrify(sql, dat)}", level="debug")
+  if cur.rowcount == 0:
+    ttyio.echo(f"getmemberidfromloginid.120: rowcount is zero", level="debug")
+    return False
+  res = cur.fetchone()
+  ttyio.echo(f"getmemberidfromloginid.100: res={res!r}", level="debug")
+  return res["id"]
+
+def setpassword(args, plaintextpassword: str, memberid:int=None) -> None:
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+
+  dbh = databaseconnect(args)
+  m = {}
+  m["password"] = getencryptedpassword(args, plaintextpassword)
+
+  update(dbh, "engine.__member", memberid, m, mogrify=True)
+  return None
+
+# @since 20221108 us election day
+def getmemberidfromname(args, name:str) -> int:
+  dbh = databaseconnect(args)
+  cur = dbh.cursor()
+  sql = "select id from engine.member where name=%s or loginid=%s"
+  dat = (name, name)
+  cur.execute(sql, dat)
+  ttyio.echo(f"getmemberidfromname.140: mogrify={cur.mogrify(sql, dat)}", level="debug")
+  if cur.rowcount == 0:
+    if args.debug is True:
+      ttyio.echo(f"getmemberidfromloginid.120: rowcount is zero", level="debug")
+    return False
+  res = cur.fetchone()
+  if args.debug is True:
+    ttyio.echo(f"getmemberidfromloginid.100: res={res!r}", level="debug")
+  return res["id"]
+
+# @since 20221109
+def getflags(args, memberid:int) -> dict:
+  flags = {}
+  if (memberid > 0):
+    flags["AUTHENTICATED"] = { "value": True, "description": "Authenticated"}
+  else:
+    flags["AUTHENTICATED"] = { "value": False, "description": "Authenticated"}
+
+  sql = """
+select
+  flag.name,
+  coalesce(map_member_flag.value, flag.defaultvalue) as value,
+  flag.description
+from engine.flag
+left outer join engine.map_member_flag on flag.name = engine.map_member_flag.name and engine.map_member_flag.memberid=%s
+"""
+  dat = (memberid,)
+  dbh = databaseconnect(args)
+  cur = dbh.cursor()
+  cur.execute(sql, dat)
+  ttyio.echo(f"cur.rowcount={cur.rowcount}", level="debug")
+  if cur.rowcount > 0:
+    res = cur.fetchall()
+    ttyio.echo(f"res={res!r}", level="debug")
+    for rec in res:
+      k = rec["name"]
+      v = rec["value"]
+      d = rec["description"]
+      if v == "t" or v == "1" or v == True:
+        flags[k] = {"value": True, "description": d}
+      else:
+        flags[k] = {"value": False, "description": d}
+
+  return flags;
+
+# @since 20221112
+def setmemberflags(args, flags, memberid=None):
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+  for name, value in flags.items():
+    clearmemberflag(args, name, memberid)
+    setmemberflag(args, name, value, memberid)
+  dbh = databaseconnect(args)
+  dbh.commit()
+
+# @since 20221113
+def buildmemberdict(res):
+  m = {}
+  for k, v in res.items():
+    if k == "datecreatedepoch" or k == "dateapprovedepoch" or k == "dateupdatedepoch" or k == "lastloginepoch":
+      continue
+    if type(v) == dict:
+      m[k] = json.dumps(v)
+      continue
+    m[k] = v
+  return m
