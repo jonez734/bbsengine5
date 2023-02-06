@@ -315,12 +315,12 @@ NameError: name 'main' is not defined
     * does not handle ctrl keys (^U, ^A, ^E, home, end, etc) (ttyio.getch())
     * https://github.com/asweigart/pwinput/blob/main/src/pwinput/__init__.py
     * https://stackoverflow.com/questions/27631629/masking-user-input-in-python-with-asterisks
-- [ ] add 'emoji' kwarg to pluralize (@since 20220719)
+- [ ] add 'emoji' kwarg to pluralize() (@since 20220719 @done 20221105)
 - https://docs.python.org/3/reference/import.html
 - [x] in setarea(), if len(left) > (width-len(rightbuf)-4), truncate left and add "..." (@since 20220806 @done 20220806)
-- [ ] limit a nodeid to only once per sigpath? (advertising?) (@since 20220820)
-- [ ] allow --terminalwidth to override queried value (@since 20220820)
-- [ ] add checkmodule(), which checks to see if a given module path exists and is callable without running it (@since 20220826)
+- [-] limit a nodeid to only once per sigpath? (advertising?) (@since 20220820)
+- [ ] allow --terminalwidth to override queried value? (@since 20220820)
+- [x] add checkmodule(), which checks to see if a given module path exists and is callable without running it (@since 20220826 @done 20221105)
 
 - (How to make a timezone aware datetime object)[https://stackoverflow.com/a/7065242]
 - https://www.howtogeek.com/devops/how-to-add-your-own-services-to-systemd-for-easier-management/ @since 20220919
@@ -336,3 +336,6 @@ NameError: name 'main' is not defined
 - [ ] rename/move socrates.getreplies() (pl/python) into engine and call it 'getsubnodes()' (@since 20221026)
 - [ ] member expert mode.. no editor milter will be run (replacing \n with {f6}) (@since 20221029)
 - [x] move socrates.editbody() to bbsengine.runtexteditor() (@since 20221030 @done 20221030)
+- [ ] use lambdas @see https://realpython.com/python-lambda/ @since 20221105
+- [ ] https://phpdelusions.net/pdo_examples/connect_to_mysql
+- [ ] removed plpython3u function 'buildsigurl()' from engine.sig (view) (@since 20221117)
