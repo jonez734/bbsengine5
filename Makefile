@@ -1,4 +1,4 @@
-export HOST = falcon
+export HOST = merlin
 
 export PROJECT = bbsengine5
 export datestamp = $(shell date +%Y%m%d-%H%M)
@@ -12,10 +12,13 @@ export RSYNC = rsync --chmod=Dg=rwxs,Fgu=rw,Fo=r --times --verbose \
 	--human-readable --checksum --rsh=ssh \
 	--delete-after 
 export PROD = $(HOST):/srv/www/vhosts/bbsengine.org/
-export PRODDOCROOT = $(PROD)80/html/
+export PRODDOCROOT = $(PROD)html/
 export STAGE = /srv/staging/bbsengine.org/
-export STAGEDOCROOT = $(STAGE)80/html/
+export STAGEDOCROOT = $(STAGE)html/
 export VERSION = v5
+
+export SRVWWWSTAGE = /srv/www/
+export SRVWWWPROD  = $(HOST):/srv/www/
 
 all:
 
@@ -29,8 +32,9 @@ release:
 	mkdir -p $(PROJECTBUILDDIR);
 	$(MAKE) -C www release;
 	$(MAKE) -C handbook release;
-	git log > CHANGELOG.txt
+	git log > CHANGELOG.txt;
 	$(installfile) README.txt INSTALL.txt RELEASENOTES.txt CHANGELOG.txt composer.json $(PROJECTBUILDDIR);
+	$(RSYNC) --dry-run --verbose --recursive php py $(PROJECTBUILDDIR);
 	pushd releases;\
 	tar jcf $(archivename).tar.bz2 $(archivename)/*;\
 	tar zcf $(archivename).tgz $(archivename)/*;\
@@ -60,6 +64,13 @@ handbook:
 	$(RSYNC) $(STAGEDOCROOT)$(VERSION)/handbook/ $(PRODDOCROOT)$(VERSION)/handbook/
 
 push:
-	git push -u origin master
+	git push
 
-.PHONY: handbook release
+sql:
+	tar zcvf bbsengine5-sql-$(datestamp).tar.gz sql/
+
+prod:
+	$(RSYNC) php/*.php $(SRVWWWSTAGE)bbsengine5/
+	$(RSYNC) $(SRVWWWSTAGE)bbsengine5/ $(SRVWWWPROD)bbsengine5/
+
+.PHONY: handbook release sql
