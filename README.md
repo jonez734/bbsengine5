@@ -35,8 +35,8 @@
       - [x] use {var} to determine colors in displaymenu()
     * inputpassword()
       - [x] ctrl-u does not behave
-      - [ ] key-repeat sometimes shows entered char, most times it's fine (race!) (stigg)
-      - [ ] sometimes echos keypresses between the mask char. timing! 
+      - [x] key-repeat sometimes shows entered char, most times it's fine (race!) (stigg)
+      - [x] sometimes echos keypresses between the mask char. timing! 
     * bbsengine.runcallback()
       - [ ] if callback is ".member", remove leading ".", eval() rest, then run it if it's callable. does not work when function is inside bbsengine
     * database
@@ -125,7 +125,7 @@
     * updatebottombar() call hard-codes color and spacing. change this so it is configurable for errors and warnings.
     * {var:engine.areacolor}
     * setarea() has a 'stack' kwarg for when it is not desired to add an area to areastack (default True) (@since 20211214 @done 20211214)
-- [ ] initscreen()
+- [-] initscreen()
      * --when initializing, use {curpos} instead of {cursorup:3} (@since 20211211)--
 - [ ] diceroll() should accept 'count' of 1 as mode 'single'
 - [x] handle Menu submenus correctly (@since 20211122 @done 20211201)
@@ -189,13 +189,13 @@ NameError: name 'main' is not defined
     * https://stackoverflow.com/questions/30775689/python-length-of-unicode-string-confusion
     * https://bytes.com/topic/python/answers/537499-how-find-number-characters-unicode-string
 - [x] remove dbh.commit() call in updatenodesigs() in an effort to fix a bug in socrates.addpost() @since 20220221 @done 20220223
-- [ ] setarea() (@since 20220223)
-    * [x] fix handling of rightbuf so it works w emojis
-    * [ ] fix handling of leftbuf so it works w emojis
+- [x] setarea() (@since 20220223)
+    * [-] fix handling of rightbuf so it works w emojis (@done 20230206)
+    * [-] fix handling of leftbuf so it works w emojis
 - [ ] upgrade setup.py from distutils to setuptools (@since 20220301)
 - [ ] setarea() (@since 20220302)
-    * [x] ljust() - emojis work now (@since 20220302 @done 20220302)
-    * [ ] :anchor: is correct, :ballot-box: is not (off by one space) (@since 20220302)
+    * [-] ljust() - emojis work now (@since 20220302 @done 20220302)
+    * [-] :anchor: is correct, :ballot-box: is not (off by one space) (@since 20220302)
 - [-] --move ljust() and center() to ttyio5-- (@since 20220303)
 - [-] --be sure to update Menu() re: ttyio.center()--
 - [x] inputsig() (specifically bbsengine.verifysig()) does not correctly handle multiple sigs (@since 20220315 @done 20220322)
@@ -220,62 +220,6 @@ NameError: name 'main' is not defined
 - [ ] https://restrictedpython.readthedocs.io/en/latest/ -- run untrusted python code in a trusted environment (@since 20220402)
 - [ ] https://stackoverflow.com/questions/17073688/how-to-use-argparse-subparsers-correctly
 
-== mud ==
-
-- [ ] present(), environment(), exits()
-- [ ] living
-    * [ ] query_vision() (tmi-2), part of living (@since 20220402)
-        * checks to see if object is "blind" or if living has no_vision set
-        * if no environment(), cannot see anything, return False
-        * if full_vision attribute is set, return True
-        * if environment()->query_light > 0, return True
-        * check inventory
-    - [ ] coins_carried
-    - [ ] total_wealth
-    - [ ] credit
-    - [ ] debit
-- [ ] cyberpunk theme (@since 20220402)
-    - [ ] "commodore pet keyboard" has average cps, and medium/low error
-      rate. "clickety clackety" pscug (@since 20220402)
-    - [ ] "professional" above average cps, low error rate
-- store object path in member record (mud.town-square, mud.wizhall, etc) (@since 20220402)
-- load ROOM, step through exits{} adding commands to shell
-- /srv/bed/.. 
-    * __init__.py, handles bed features along w mud features (@since 20220403)
-    - shell
-    - cmds
-    - std
-    - obj
-    - wiz
-    - ghost
-- in Base, add set() and query() (@since 20220403)
-* [ ] generic object
-  * set/get attributes. (@since 20220331)
-  * id()
-  * move()
-  * remove()
-  * clean_up()
-  * receive_object()
-  * release_object()
-  * check_light()
-* [ ] room object
-  * query_exit_dirs()
-  * id()
-  * reset()
-  * query_ambient_light() calls weather_d
-  * receive_objects() returns 1
-- [ ] lpmuds downloads: http://lpmuds.net/downloads.html (@since 20220316)
-- [ ] mud: commodore pet keyboards are notorious for jamming, double keys, etc. cyberpunk (@since 20220320 pscug)
-- [ ] query_verb()
-- [ ] this_player()?
-- [ ] environment() -> returns 'super' of object arg
-- [ ] inventory()
-- [ ] how does a Base know what room it is in? (@since 20220402)
-- environment vars:
-     * START: room where a member appears after login (@since 20220306)
-     * HOME: the room where 'home' command takes you (@since 20220306)
-     * TITLE, MOUT, MIN, MMOUT, MMIN, MDEST, MCLONE, MVIS, and MINVIS
-     * update PYTHONPATH based on member.flags (wiz, dead, etc)
 
 == bed ==
 
@@ -315,7 +259,7 @@ NameError: name 'main' is not defined
     * does not handle ctrl keys (^U, ^A, ^E, home, end, etc) (ttyio.getch())
     * https://github.com/asweigart/pwinput/blob/main/src/pwinput/__init__.py
     * https://stackoverflow.com/questions/27631629/masking-user-input-in-python-with-asterisks
-- [ ] add 'emoji' kwarg to pluralize() (@since 20220719 @done 20221105)
+- [x] add 'emoji' kwarg to pluralize() (@since 20220719 @done 20221105)
 - https://docs.python.org/3/reference/import.html
 - [x] in setarea(), if len(left) > (width-len(rightbuf)-4), truncate left and add "..." (@since 20220806 @done 20220806)
 - [-] limit a nodeid to only once per sigpath? (advertising?) (@since 20220820)
@@ -329,10 +273,11 @@ NameError: name 'main' is not defined
 - https://docs.python.org/3/howto/logging-cookbook.html (@since 20221009) @ty ryan
 - https://www.compose.com/articles/take-a-dip-into-postgresql-arrays/
 
-- [ ] check result of bbsengine.getcurrentmemberid() for None, throw error (@since 20221021)
+- [x] check result of bbsengine.getcurrentmemberid() for None, throw error (@since 20221021) (@done 20230206)
 - [ ] new member needs database role + permissions @since 20221021 @see https://stackoverflow.com/questions/8546759/how-to-check-if-a-postgres-user-exists
-- [ ] if marked sigop of top.example, then implicitly you are sigop of top.example.* (@since 20221026)
-- [ ] if marked moderator of top.example, you are moderator of only top.example (@since 20221026)
+- [-] if marked sigop of top.example, then implicitly you are sigop of top.example.* (@since 20221026)
+- [-] if marked moderator of top.example, you are moderator of only top.example (@since 20221026)
+- [ ] should moderators always be sigops of subsigs? (@since 20230206)
 - [ ] rename/move socrates.getreplies() (pl/python) into engine and call it 'getsubnodes()' (@since 20221026)
 - [ ] member expert mode.. no editor milter will be run (replacing \n with {f6}) (@since 20221029)
 - [x] move socrates.editbody() to bbsengine.runtexteditor() (@since 20221030 @done 20221030)
