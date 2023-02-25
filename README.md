@@ -211,7 +211,11 @@ NameError: name 'main' is not defined
     * https://www.google.com/search?q=python3+setuptools&oq=python3+setup&aqs=chrome.0.69i59j69i57j0i512l2j0i20i263i512j0i512l3j0i10i433l2.1962j0j7&sourceid=chrome&ie=UTF-8
     * https://packaging.python.org/en/latest/tutorials/packaging-projects/
     * use setuptools.setup() instead of disutils.setup() (@since 20220324)
-- setuptools is *not* a direct replacement for distutils.core. ref: bbsengine5.py changes not installed properly (did not get used by ogun) (@since 20220327)
+- use setuptools instead of distutils
+      * @since 20220327
+      * @done 20230225
+      * problem was a bbsengine5.py installed alongside a package (subdir) version
+
 - [-] calls to setarea() wo emojis are 2 spaces too wide (@since 20220328)
 - [-] calls to setarea() are one space too short (@since 20220328)
 - use of emojis in bbsengine.setarea() or bbsengine.title() are currently not supported (@since 20220329)
