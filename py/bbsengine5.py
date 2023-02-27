@@ -1,7 +1,7 @@
 from __future__ import generators    # needs to be at the top of your module
 
 #
-# Copyright (C) 2008-2021 zoidtechnologies.com. All Rights Reserved.
+# Copyright (C) 2008-2023 zoidtechnologies.com. All Rights Reserved.
 #
 
 import re, os, sys, pwd, time, random, pathlib, copy, socket, json
@@ -282,7 +282,7 @@ def inputprimarykey(args:argparse.Namespace, table, primarykey, prompt, default,
       if args.debug is True:
         ttyio.echo("inputprimarykey.200: verify is callable", level="debug")
       v = verify(dbh, args, table, primarykey, buf)
-      ttyio.echo("verify=%r" % (v), level="debug")
+      ttyio.echo(f"verify={v!r}", level="debug")
       if v is True:
         if args.debug is True:
           ttyio.echo("verify returned true", level="debug")
@@ -545,21 +545,21 @@ def inputsig(args: argparse.Namespace, prompt="sig: ", oldvalue="", multiple=Tru
 
   return ttyio.inputstring(prompt, oldvalue, args=args, verify=verify, multiple=multiple, completer=sigcompleter(args), returnseq=True, **kw)
 
-def getsignamefromid(dbh, id):
-  if id is None:
-    return None
-
-#  dbh = dbconnect(cfgfile, "system")
-  sql = "select name from engine.sig where id=%s"
-  dat = (int(id),)
-  cur = dbh.cursor()
-  cur.execute(sql, dat)
-  res = cur.fetchone()
-  cur.close()
-  dbh.close()
-  if res is not None and "name" in res:
-    return res["name"]
-  return None
+#def getsignamefromid(args, id):
+#  if id is None:
+#    return None
+#
+#  dbh = databaseconnect(args)
+#  sql = "select name from engine.sig where id=%s"
+#  dat = (int(id),)
+#  cur = dbh.cursor()
+#  cur.execute(sql, dat)
+#  res = cur.fetchone()
+#  cur.close()
+#  dbh.close()
+#  if res is not None and "name" in res:
+#    return res["name"]
+#  return None
 
 def update(dbh, table, key, items:dict, primarykey="id", mogrify=False):
 #  ttyio.echo(f"bbsengine5.update.100: items={items!r}", level="debug") # interpret=False)
@@ -684,10 +684,17 @@ def updatenode(dbh, args:argparse.Namespace, id:int, node:dict, reset=False, mog
     del node["attributes"]
   return update(dbh, "engine.__node", id, node, mogrify=mogrify)
 
-def setmemberflag(dbh, memberid, flag, value, mogrify=False):
-  logentry("setflag(%d, '%s', %s)" % (memberid, flag, value))
+# @since 20221114
+def setmemberflag(args, flag, value, memberid=None, mogrify=False):
+  if memberid is None:
+    memberid = getcurrentmemberid(args)
+  logentry(f"setmemberflag({flag}, {value}, {memberid})")
+  if flag == "AUTHENTICATED":
+    return
+
   sql = "delete from engine.map_member_flag where memberid=%s and name=%s"
   dat = (memberid, flag)
+  dbh = databaseconnect(args)
   cur = dbh.cursor()
 
   if mogrify is True:
@@ -1226,10 +1233,11 @@ def getmembername(args:argparse.Namespace, memberid:int=None) -> str:
 #  return getmembername(args, currentmemberid)
 
 # @since 20200802
-def setmembercredits(dbh:object, memberid:int, amount:int):
+def setmembercredits(args, memberid:int, amount:int):
   if amount is None or amount < 0:
     return None
-  # dbh = databaseconnect(args)
+
+  dbh = databaseconnect(args)
   cur = dbh.cursor()
   sql = "update engine.__member set credits=%s where id=%s"
   dat = (amount, memberid)
@@ -1243,6 +1251,7 @@ def updatemember(args, member, memberid=None):
   m = buildmemberdict(member)
   dbh = databaseconnect(args)
   update(dbh, "engine.__member", memberid, m, mogrify=True)
+  # setmemberflags(args, member["flags"], memberid)
   return
 
 # @since 20210203
@@ -1260,7 +1269,7 @@ def getmemberbyname(dbh:object, args:argparse.Namespace, name:str, fields="*") -
   cur.execute(sql, dat)
   res = cur.fetchone()
   cur.close()
-  return res
+  return buildmemberdict(res)
 
 # @since 20200731
 def getmemberbyid(dbh:object, memberid:int, fields="*") -> dict:
@@ -1384,10 +1393,11 @@ def diceroll(sides:int=6, count:int=1, mode:str="single"):
 
 # @since 20210222 use format strings, set bottommargin to 1
 def initscreen(topmargin=0, bottommargin=1):
-  ttyio.echo("{f6:3}{cursorup:3}")
+  ttyio.echo("{f6:3}{cursorup:3}", end="", flush=True)
+  initbottombar(height=bottommargin)
 
-  terminalheight = ttyio.getterminalheight()
-  ttyio.echo(f"{{decsc}}{{decstbm:{topmargin},{terminalheight-bottommargin}}}{{decrc}}") #  % (topmargin, terminalheight-bottommargin)) #  % (topmargin, terminalheight-bottommargin))
+#  terminalheight = ttyio.getterminalheight()
+#  ttyio.echo(f"{{decsc}}{{decstbm:{topmargin},{terminalheight-bottommargin}}}{{decrc}}") #  % (topmargin, terminalheight-bottommargin)) #  % (topmargin, terminalheight-bottommargin))
 
   return
 
@@ -1578,6 +1588,9 @@ def inputpassword(prompt:str="password: ", mask="X") -> str:
 # @since 20210709 moved from ttyio4
 def oxfordcomma(seq: List[Any], conjunction="and") -> str:
     """Return a grammatically correct human readable string (with an Oxford comma)."""
+    if seq is None:
+      return None
+
     seq = [str(s) for s in seq]
 
 #    ttyio.echo("seq=%r" % (seq))
@@ -1782,46 +1795,54 @@ def buildfilepath(*args) -> str:
     q.append(p)
   return "/".join(q)
 
+def pager(f, **kw):
+  width = kw["width"] if "width" in kw else ttyio.getterminalwidth()
+  height = kw["height"] if "height" in kw else ttyio.getterminalheight()
+  indent = kw["indent"] if "indent" in kw else ""
+
+  row = 1
+  for line in f:
+    ttyio.echo(line, wordwrap=True)
+    line = line.replace("\n", "{f6}")
+    row += ttyio.interpretecho(line, width=width).count("\n")
+    if row >= height-2:
+      ch = ttyio.inputboolean("{curpos:%d,1}{eraseline}{var:promptcolor}more? [{var:currentoptioncolor}Y{var:optioncolor}n{var:promptcolor}]: {var:inputcolor}" % (height), "Y")
+      ttyio.echo("{cursorup}{eraseline}{/all}", end="")
+      if ch is False:
+        break
+      else:
+        row = 1
+    ttyio.echo(line, wordwrap=True, end="", width=width, indent=indent)
+  return
+
 # @since 20220718
-def filedisplay(args, filename, more=True, width=None) -> None:
-  def process(f):
-    row = 1
-    for line in f:
-      line = line.replace("\n", "{f6}")
-      if more is True:
-        row += ttyio.interpretecho(line, width=width).count("\n")
-        if row >= height-2:
-          ch = ttyio.inputboolean("{curpos:%d,1}{eraseline}{var:promptcolor}more? [{var:currentoptioncolor}Y{var:optioncolor}n{var:promptcolor}]: {var:inputcolor}" % (height), "Y")
-          ttyio.echo("{cursorup}{eraseline}{/all}", end="")
-          if ch is False:
-            break
-          else:
-            row = 1
-      ttyio.echo(line, wordwrap=True, end="", width=width)
+def filedisplay(filename, **kw) -> None: #more=True, width=None) -> None:
+  more = kw["more"] if "more" in kw else True
+  width = kw["width"] if "width" in kw else None
+  indent = kw["indent"] if "indent" in kw else ""
+  args = kw["args"] if "args" in kw else None
 
 #  ttyio.echo("filename=%r" % (filename), level="debug")
   if width is None:
     width = ttyio.getterminalwidth()
 
   height = ttyio.getterminalheight()-1
-#  ttyio.echo("height=%r" % (height), level="debug")
-#  return
-#  ttyio.echo("{home}{decsc}{curpos:%d,1}{erasedisplay:totop}{decrc}" % (height))
-
   ttyio.echo("filedisplay.100: filename=%r type=%r" % (filename, type(filename)), level="debug")
-  if type(filename) == str or type(filename) == pathlib.PosixPath:
-    with open(str(filename)) as f:
-      process(f)
-  else:
-    with filename as f:
-      process(filename)
-  ttyio.echo("{f6}")
+  with filename as f:
+    for line in f:
+      ttyio.echo(line)
+
+#    pager(f, width=width, height=height, indent=indent)
+  ttyio.echo("{/all}{f6}")
 
 #  ttyio.inputchar("{curpos:%d,1}{eraseline}{var:promptcolor}press enter key to end: {var:inputcolor}" % (height), "", noneok=True)
 #  ttyio.echo("{cursorhpos:1}{eraseline}{/all}")
 
 # @since 20220826
 def checkmodule(args, module, op="run", buildargs=False, **kw):
+  if args.debug is True:
+    ttyio.echo(f"bbsengine.checkmodule.120: module={module!r}", level="debug")
+
   try:
     m = importlib.import_module(module)
   except Exception as e:
@@ -1845,7 +1866,7 @@ def checkmodule(args, module, op="run", buildargs=False, **kw):
     return True
   if (hasattr(m, "access") and callable(m.access)) is False:
     if args.debug is True:
-      ttyio.echo("no access function", level="debug")
+      ttyio.echo("no callable access function", level="debug")
     return False
 
   if m.access(args, op) is True:
@@ -1857,7 +1878,7 @@ def checkmodule(args, module, op="run", buildargs=False, **kw):
 
   if (hasattr(m, "buildargs") and callable(m.buildargs)) is False:
     if args.debug is True:
-      ttyio.echo("no buildargs function", level="debug")
+      ttyio.echo("no callable buildargs function", level="debug")
     if buildargs is True:
       return False
 
@@ -2105,16 +2126,15 @@ def setmemberflags(args, flags, memberid=None):
   if memberid is None:
     memberid = getcurrentmemberid(args)
   for name, value in flags.items():
-    clearmemberflag(args, name, memberid)
-    setmemberflag(args, name, value, memberid)
-  dbh = databaseconnect(args)
-  dbh.commit()
+    v = value["value"]
+    setmemberflag(args, name, v, memberid)
+  return
 
 # @since 20221113
 def buildmemberdict(res):
   m = {}
   for k, v in res.items():
-    if k == "datecreatedepoch" or k == "dateapprovedepoch" or k == "dateupdatedepoch" or k == "lastloginepoch":
+    if k in ("datecreatedepoch", "dateapprovedepoch", "dateupdatedepoch", "lastloginepoch", "flags"):
       continue
     if type(v) == dict:
       m[k] = json.dumps(v)
