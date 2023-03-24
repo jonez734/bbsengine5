@@ -17,8 +17,8 @@ export STAGE = /srv/staging/bbsengine.org/
 export STAGEDOCROOT = $(STAGE)html/
 export VERSION = v5
 
-export SRVWWWSTAGE = /srv/www/
-export SRVWWWPROD  = $(HOST):/srv/www/
+export STAGE = /srv/www/bbsengine5/
+export PROD  = $(HOST):/srv/www/bbsengine5/
 
 all:
 
@@ -70,7 +70,7 @@ sql:
 	tar zcvf bbsengine5-sql-$(datestamp).tar.gz sql/
 
 prod:
-	$(RSYNC) php/*.php $(SRVWWWSTAGE)bbsengine5/
-	$(RSYNC) $(SRVWWWSTAGE)bbsengine5/ $(SRVWWWPROD)bbsengine5/
+	$(RSYNC) php/*.php $(STAGE)php/
+	$(RSYNC) $(STAGE)php/ $(PROD)php/
 
 .PHONY: handbook release sql
