@@ -2,9 +2,7 @@
 
 /**
  * This file is part of bbsengine5
- * @copyright (C) 2002-2020 Zoid Technologies. All Rights Reserved.
- *
- * Thank you for using Software That Sucks Less(sm).
+ * @copyright (C) 2002-2023 zoidtechnologies.com. All Rights Reserved.
  *
  * @package bbsengine5
  */
@@ -16,7 +14,7 @@
 require_once("HTML/QuickForm2.php");
 require_once("HTML/QuickForm2/Renderer.php");
 require_once("HTML/QuickForm2/Element/Captcha/Image.php");
-require_once("InputEmail.prg");
+require_once("InputEmail.php");
 
 /**
  * @since 20160419
@@ -185,8 +183,8 @@ if (function_exists("getsmarty") === false)
   function getsmarty($options=null)
   {
     $options = [];
-    $options["pluginsdir"] = array(SMARTYPLUGINSDIR);
-    $options["templatedir"] = array(SMARTYTEMPLATESDIR);
+    $options["pluginsdir"] = SMARTYPLUGINSDIR;
+    $options["templatedir"] = SMARTYTEMPLATESDIR;
     $options["compiledir"] = SMARTYCOMPILEDTEMPLATESDIR;
     $options["compileid"] = LOGENTRYPREFIX;
     return _getsmarty($options);
@@ -280,7 +278,6 @@ function logentry($message, $priority=LOG_INFO)
   {
     define("LOGENTRYPREFIX", "define-logentryprefix");
   }
-  
   
   $logger = Log::factory("syslog", "", LOGENTRYPREFIX, [], PEAR_LOG_DEBUG);
 //  $logger->log("bbsengine5.logentry.100: _SERVER=".var_export($_SERVER, true), $priority);
@@ -456,7 +453,7 @@ function flag($name, $memberid=0)
  */
 function dbconnect($dsn)
 {
-//  logentry("dbconnect.100: dsn=".var_export($dsn, true));
+  logentry("dbconnect.100: dsn=".var_export($dsn, true));
   $dbh = MDB2::singleton($dsn);
   if (PEAR::isError($dbh))
   {
@@ -2802,7 +2799,7 @@ function setcurrentmembercredits($credits)
 /**
  * @since 20171125
 */
-function displaypage($data=[])
+function _displaypage($data=[])
 {
   $nav = isset($data["nav"]) ? $data["nav"] : [];
   $data["nav"] = buildnav($nav);
@@ -3955,6 +3952,7 @@ function buildmantraactions($data)
 */
   return $actions;
 }
+
 /** 
  * @since 20140512
  */
@@ -4204,11 +4202,11 @@ function validatesigs($sigs)
 /**
  * @since 20140512
  */
-function getrandommantra()
+function getrandommantra($dsn)
 {
   $sql = "select id from engine.mantra order by random() limit 1";
 
-  $dbh = dbconnect(SYSTEMDSN);
+  $dbh = dbconnect($dsn);
   if (PEAR::isError($dbh))
   {
     logentry("getrandommantra.100: " . $dbh->toString());
