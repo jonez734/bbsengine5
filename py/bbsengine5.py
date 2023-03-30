@@ -4,7 +4,7 @@ from __future__ import generators    # needs to be at the top of your module
 # Copyright (C) 2008-2023 zoidtechnologies.com. All Rights Reserved.
 #
 
-import re, os, sys, pwd, time, random, pathlib, copy, socket, json
+import re, os, sys, pwd, time, random, copy, socket, json
 import importlib.resources as resource
 
 import psycopg2, psycopg2.extras
@@ -1312,7 +1312,12 @@ def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
 # lrcorner="{acs:lrcorner}"
 # ulcorner="{acs:ulcorner}"
 # urcorner="{acs:urcorner}"
-def title(title:str, hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None, fillchar=" "):
+def title(title:str, hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None, fillchar=" ", style="acs", center=True):
+  if style == "plain":
+    ell = len(title)+2
+    ttyio.echo(f"-"*ell+"{f6} "+title+"{f6}"+"-"*ell+"{f6}")
+    return
+
   if width is None:
     width = ttyio.getterminalwidth()-2
 #  buf = ttyio.center(title, width)
@@ -2141,3 +2146,6 @@ def buildmemberdict(res):
       continue
     m[k] = v
   return m
+
+def inputpassword(prompt, mask="*", **kw):
+  return ttyio.inputstring(prompt, mask=mask, **kw)
