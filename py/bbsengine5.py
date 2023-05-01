@@ -1312,11 +1312,48 @@ def hr(color="{var:engine.title.hrcolor}", chars="-=", width=None):
 # lrcorner="{acs:lrcorner}"
 # ulcorner="{acs:ulcorner}"
 # urcorner="{acs:urcorner}"
-def title(title:str, hrchars:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", width=None, fillchar=" ", style="acs", center=True):
-  if style == "plain":
-    ell = len(title)+2
-    ttyio.echo(f"-"*ell+"{f6} "+title+"{f6}"+"-"*ell+"{f6}")
-    return
+def title(title:str, **kw): # hrchar:str="{acs:hline}", llcorner="{acs:llcorner}", lrcorner="{acs:lrcorner}", ulcorner="{acs:ulcorner}", urcorner="{acs:urcorner}", vline="{acs:vline}", width=None, fillchar=" ", center=True):
+  if ttyio.getoption("style", "ttyio") == "noansi":
+      width = 100
+      hline="-"*width
+      llcorner="+"
+      lrcorner="+"
+      ulcorner="+"
+      urcorner="+"
+      vline="|"
+      boxcolor = ""
+      titlecolor = ""
+  else:
+      width = ttyio.getterminalwidth()-2
+      hline = f"{{acs:hline:{width}}}"
+      llcorner = "{acs:llcorner}"
+      lrcorner = "{acs:lrcorner}"
+      vline = "{acs:vline}"
+      urcorner = "{acs:urcorner}"
+      ulcorner = "{acs:ulcorner}"
+      boxcolor = "{darkgreen}" # var:engine.title.hrcolor}"
+      titlecolor = "{white}{bggray}" # {var:engine.title.color}"
+
+  reset = "{/all}"
+  w = int((width-len(title)-4)/2)
+  padding = " "*(int(w))
+
+  ttyio.echo(f"{boxcolor}{ulcorner}{hline}{urcorner}", wordwrap=False)
+  ttyio.echo(f"{boxcolor}{vline}{reset} {titlecolor}{padding} {title} {padding}{reset} {boxcolor}{vline}", wordwrap=False)
+  ttyio.echo(f"{boxcolor}{llcorner}{hline}{lrcorner}{reset}", wordwrap=False)
+  return
+
+  style = ttyio.getoption("style", "ttyio")
+  if style == "noansi":
+    width = 100
+    hrchar = "-"
+    llcorner = "+"
+    lrcorner = "+"
+    ulcorner = "+"
+    urcorner = "+"
+    vline = "|"
+  else:
+    width = getterminalwidth()-2
 
   if width is None:
     width = ttyio.getterminalwidth()-2
