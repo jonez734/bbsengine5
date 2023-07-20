@@ -2183,6 +2183,7 @@ function buildloginfieldset($form)
  * calls json_encode() with default parameters
  *
  * @since 20140730
+ * @since 20230329 copied from bbsengine5.php
  */
 function encodejson($data)
 {
