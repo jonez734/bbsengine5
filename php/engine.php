@@ -49,6 +49,7 @@ function toboolean($value, $label="label", $default=false)
  */
 function displaypage($kw=[])
 {
+  logentry("displaypage called");
   $pagetemplate = isset($kw["pagetemplate"]) ? $kw["pagetemplate"] : "page.tmpl";
   $dsn = isset($kw["systemdsn"]) ? $kw["systemdsn"] : SYSTEMDSN;
   $kw["pagetemplate"] = $pagetemplate;
@@ -495,7 +496,7 @@ function checkmemberflag($name, $memberid=0)
  * @param string
  * @param enum
  */
-function logentry($message, $priority=LOG_DEBUG)
+function logentry($message, $priority=PEAR_LOG_DEBUG)
 {
   
   if (defined("LOGENTRYPREFIX") === false)
@@ -939,4 +940,33 @@ function buildbreadcrumbs($sigpath, $skiptop=true, $hidepath=null)
   return $crumbs;
 }
 */
+
+/**
+ * calls json_encode() with default parameters
+ *
+ * @since 20140730
+ * @since 20230329 copied from bbsengine5.php
+ */
+function encodejson($data)
+{
+ // @see http://us3.php.net/manual/en/json.constants.php
+ return json_encode($data); // , JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_NUMERIC_CHECK); // JSON_UNESCAPED_UNICODE in 5.4+
+}
+
+/**
+ * decodes given json data into a dictionary (associative array)
+ *
+ * @since 20140730
+ * @since 20230329 copied from bbsengine5.php
+ */
+function decodejson($data)
+{
+ if (is_string($data) === false)
+ {
+  logentry("decodejson.100: data=".var_export($data, true));
+  return;
+ }
+ return json_decode($data, true);
+}
+
 ?>
