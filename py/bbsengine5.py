@@ -747,7 +747,7 @@ def updateflag(dbh, flag):
   return
 
 # @since 20210106
-def checkflag(args:argparse.Namespace, flag:str, memberid:int=None):
+def checkflag(args, flag:str, memberid:int=None):
   if memberid is None:
     memberid = getcurrentmemberid(args)
 
@@ -784,7 +784,7 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
 
   from dateutil.tz import tzlocal
   from datetime import datetime
-  from time import strftime, tzset
+  from time import tzset
 
   # ttyio.echo("bbsengine.datestamp.100: type(t)=%r" % (type(t)), level="debug")
 
@@ -798,7 +798,7 @@ def datestamp(t=None, format:str="%Y/%m/%d %I:%M%P %Z (%a)") -> str:
     epoch = getdate(t)
     t = datetime.fromtimestamp(epoch, tzlocal())
 
-  stamp = strftime(format, t.timetuple())
+  stamp = t.strftime(format, t.timetuple())
   return stamp
 
 currentmemberid = None
@@ -1167,7 +1167,7 @@ class Menu(object):
         else:
           ttyio.echo("{cursordown:%d}" % (len(self.items)), end="", flush=True)
           self.pos = len(self.items)
-      elif ch == "\n":
+      elif ch == "KEY_ENTER":
         # ttyio.echo("pos=%d len=%d" % (pos, len(menu)))
         return ("select", self.pos)
       elif ch == "KEY_HOME":
@@ -1337,9 +1337,13 @@ def title(title:str, **kw): # hrchar:str="{acs:hline}", llcorner="{acs:llcorner}
   reset = "{/all}"
   w = int((width-len(title)-4)/2)
   padding = " "*(int(w))
+  if w % 2 == 0:
+    extra = ""
+  else:
+    extra = " "
 
   ttyio.echo(f"{boxcolor}{ulcorner}{hline}{urcorner}", wordwrap=False)
-  ttyio.echo(f"{boxcolor}{vline}{reset} {titlecolor}{padding} {title} {padding}{reset} {boxcolor}{vline}", wordwrap=False)
+  ttyio.echo(f"{boxcolor}{vline}{reset} {titlecolor}{padding} {title} {padding}{extra}{reset} {boxcolor}{vline}", wordwrap=False)
   ttyio.echo(f"{boxcolor}{llcorner}{hline}{lrcorner}{reset}", wordwrap=False)
   return
 
@@ -1502,6 +1506,7 @@ def updatesig(dbh, path, sig):
 
 # @since 20210301
 # @see https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
+# @since 20240102 copied to bbsengine6
 def updateprogress(iteration, total):
   terminalwidth = ttyio.getterminalwidth()
   decimals = 0
@@ -1540,20 +1545,32 @@ def inputfilename(args: argparse.Namespace, prompt, default, verify=verifyFileEx
     os.chdir(dirname)
   return ttyio.inputstring(prompt, default, verify=verify, **kw)
 
+def loadmodule(args:object, modulepath:str):
+  try:
+      m = importlib.import_module(modulepath)
+  except ModuleNotFoundError:
+      ttyio.echo("loadmodule.180: module %s not found" % (modulepath), level="error")
+      raise
+  except Exception as e:
+      import traceback
+      traceback.print_exc(file=sys.stdout)
+  return m
+
 def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.Namespace, callback, argparser=None, **kwargs):
-  if args.debug is True:
+  debug = args.debug if args is not None else False
+  if debug is True:
     ttyio.echo("bbsengine5.runcallback.100: args=%r" % (args), level="debug")
     ttyio.echo("runcallback.120: kwargs=%r" % (kwargs), level="debug")# interpret=False)
 #  if argparser is not None:
 #    args = argparser.parse_args()
 
   if callback is None:
-    if args.debug is True:
+    if debug is True:
       ttyio.echo("runcallback.140: callback is None", level="debug")
     return None
 
   if callable(callback) is True:
-    if args.debug is True:
+    if debug is True:
       ttyio.echo("runcallback.160: callback is callable", level="debug")
     return callback(args, **kwargs)
 
@@ -1565,7 +1582,7 @@ def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.N
     modulepath = s[0] # None
     funcname = "main" # s[0]
 
-  if args.debug is True:
+  if debug is True:
     ttyio.echo("runcallback.160: modulepath=%r funcname=%r" % (modulepath, funcname), level="debug")
 
   if modulepath is None:
@@ -1577,24 +1594,16 @@ def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.N
       return None
 
     if callable(func) is True:
-      if args.debug is True:
+      if debug is True:
         ttyio.echo("runcallback.260: callable", level="debug")
       return func(args, **kwargs)
     else:
-      if args.debug is True:
+      if debug is True:
         ttyio.echo("runcallback.280: not callable", level="debug")
       return None
 
-  try:
-      m = importlib.import_module(modulepath)
-  except ModuleNotFoundError:
-      ttyio.echo("runcallback.180: module %s not found" % (modulepath), level="error")
-      return None
-  except Exception as e:
-      import traceback
-      traceback.print_exc(file=sys.stdout)
-
-  if args.debug is True:
+  m = loadmodule(args, modulepath)
+  if debug is True:
     ttyio.echo("runcallback.200: m=%r funcname=%r" % (m, funcname), level="debug")
 
   try:
@@ -1603,7 +1612,7 @@ def runcallback(args:object, callback, optional=False, **kwargs): # s:argparse.N
 #    ttyio.echo("runcallback.240: function %s.%s() not found" % (modulepath, funcname))
     return None
   else:
-    if args.debug is True:
+    if debug is True:
       ttyio.echo("runcallback.220: func=%r" % (func), level="debug")
     if callable(func) is True:
       return func(args, **kwargs)
@@ -1651,10 +1660,11 @@ readablelist = oxfordcomma
 # @see https://gist.github.com/sirpengi/5045885 2013-feb-27 in oftcphp sirpengi
 # @since 20140529
 # @since 20200719
-def collapselist(lst):
-    def chunk(lst):
-        ret = [lst[0],]
-        for i in lst[1:]:
+# @since 20230502 renamed
+def oldrangecollapse(elle:list) -> str:
+    def chunk(elle):
+        ret = [elle[0],]
+        for i in elle[1:]:
             if ord(i) == ord(ret[-1]) + 1:
                 pass
             else:
@@ -1662,15 +1672,50 @@ def collapselist(lst):
                 ret = []
             ret.append(i)
         yield ret
-    chunked = chunk(lst)
+    chunked = chunk(elle)
     ranges = ((min(l), max(l)) for l in chunked)
     return ", ".join("{0}-{1}".format(*l) if l[0] != l[1] else l[0] for l in ranges)
 
+# @since 20230502
+# @see https://rosettacode.org/wiki/Range_extraction#Python
+def rangecollapse(lst:list):
+    'Yield 2-tuple ranges or 1-tuple single elements from list of increasing ints'
+    lenlst = len(lst)
+    i = 0
+    while i < lenlst:
+        low = lst[i]
+        while i <lenlst-1 and lst[i]+1 == lst[i+1]: i +=1
+        hi = lst[i]
+        if   hi - low >= 2:
+            yield (low, hi)
+        elif hi - low == 1:
+            yield (low,)
+            yield (hi,)
+        else:
+            yield (low,)
+        i += 1
+
+
+# @since 20230502
+def rangeexpand(txt:str) -> list:
+  "accepts an str with a range expression, returns a list"
+  elle = []
+  for r in txt.split(','):
+    if '-' in r[1:]:
+      r0, r1 = r[1:].split('-', 1)
+      elle += range(int(r[0] + r0), int(r1) + 1)
+    else:
+      elle.append(int(r))
+  return list(set(elle))
+
+def printr(ranges):
+    print( ','.join( (('%i-%i' % r) if len(r) == 2 else '%i' % r)
+                     for r in ranges ) )
 
 # @since 20211101
 # @see https://code.activestate.com/recipes/137270-use-generators-for-fetching-large-db-record-sets/
-def resultiter(cursor, arraysize=1000, filterfunc=None, **kw):
-    'An iterator accepts a psycopg2 cursor to keep memory usage down'
+def resultiter(cursor, arraysize=1000, filterfunc=None, **kw:dict):
+    'An iterator which accepts a psycopg2 cursor to keep memory usage down'
     while True:
         results = cursor.fetchmany(arraysize)
         if not results:
@@ -1964,7 +2009,7 @@ def runmodule(args, module, **kwargs):
       if args.debug is True:
         ttyio.echo("bbsengine.runmodule.220: prgargs=%r" % (prgargs), level="debug")
 
-      res = runcallback(prgargs, module+".main", **kwargs)
+      return runcallback(prgargs, module+".main", **kwargs)
 #  else:
 #    res = runcallback(args, module+".main", **kwargs)
   res = runcallback(args, module+".main", **kwargs)
@@ -1994,7 +2039,7 @@ def init(args, **kw):
     address = os.environ["REMOTEHOST"]
     hostname = socket.gethostbyaddr(address)[0]
   else:
-    address = "127.0.0.42"
+    address = "127.0.0.1"
     hostname = socket.gethostname()
 
   d = {}
@@ -2184,5 +2229,6 @@ def buildmemberdict(res):
     m[k] = v
   return m
 
+# @since 20230504
 def inputpassword(prompt, mask="*", **kw):
   return ttyio.inputstring(prompt, mask=mask, **kw)
